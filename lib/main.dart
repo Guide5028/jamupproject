@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.brown,
       ),
-      home: const HomePage(),
+      home: HomePage(),
     );
   }
 }

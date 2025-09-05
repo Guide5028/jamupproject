@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  HomePage({super.key});
+
+  // GlobalKey to control Scaffold for opening endDrawer
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey, // Assign the key
       backgroundColor: const Color(0xFFF8F5F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F5F0),
@@ -52,21 +56,184 @@ class HomePage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.menu, color: Color(0xFF2C1810)),
             onPressed: () {
-              // TODO: open drawer or menu
+              // Open drawer using GlobalKey
+              _scaffoldKey.currentState?.openEndDrawer();
             },
           ),
         ],
       ),
 
+      // Modern JamUP Drawer
+      endDrawer: Drawer(
+        backgroundColor: const Color(0xFFF8F5F0),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Drawer Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFB8860B), Color(0xFFDAA520)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Text(
+                    'JamUP Menu',
+                    style: GoogleFonts.roboto(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Main menu items
+                ListTile(
+                  leading: const Icon(Icons.people_outline,
+                      color: Color(0xFF2C1810)),
+                  title: Text('Explore Artists',
+                      style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+                ListTile(
+                  leading: const Icon(Icons.contact_mail_outlined,
+                      color: Color(0xFF2C1810)),
+                  title: Text('Contact Us',
+                      style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+
+                const Divider(thickness: 1, height: 30),
+
+                // Services section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('Services',
+                      style: GoogleFonts.roboto(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF8B7355))),
+                ),
+                ExpansionTile(
+                  leading: const Icon(Icons.build_circle_outlined,
+                      color: Color(0xFF2C1810)),
+                  title: Text('Manage Services',
+                      style: GoogleFonts.inter(fontSize: 16)),
+                  childrenPadding: const EdgeInsets.only(left: 40),
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.book_online,
+                          color: Color(0xFF2C1810)),
+                      title: Text('Book Talent',
+                          style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.manage_accounts,
+                          color: Color(0xFF2C1810)),
+                      title: Text('Manage Talent',
+                          style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading:
+                          const Icon(Icons.search, color: Color(0xFF2C1810)),
+                      title: Text('Discover Talent',
+                          style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+
+                const Divider(thickness: 1, height: 30),
+
+                // Resources section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('Resources',
+                      style: GoogleFonts.roboto(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF8B7355))),
+                ),
+                ExpansionTile(
+                  leading: const Icon(Icons.folder_open_outlined,
+                      color: Color(0xFF2C1810)),
+                  title: Text('View Resources',
+                      style: GoogleFonts.inter(fontSize: 16)),
+                  childrenPadding: const EdgeInsets.only(left: 40),
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.support_agent_outlined,
+                          color: Color(0xFF2C1810)),
+                      title: Text('Support',
+                          style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.privacy_tip_outlined,
+                          color: Color(0xFF2C1810)),
+                      title: Text('Privacy',
+                          style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.rule_folder_outlined,
+                          color: Color(0xFF2C1810)),
+                      title:
+                          Text('Terms', style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.help_outline,
+                          color: Color(0xFF2C1810)),
+                      title: Text('Help Center',
+                          style: GoogleFonts.inter(fontSize: 14)),
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 30),
+
+                // Optional logout / version
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Color(0xFF2C1810)),
+                  title: Text('Logout', style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('Version 1.0.0',
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: const Color(0xFF8B7355))),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+
+      // Body: Hero Banner + Feature Cards (your existing code)
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // 🎵 Hero Banner
+          // Hero Banner
           Container(
             height: 280,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFB8860B), Color(0xFFDAA520), Color(0xFFF4E4BC)],
+                colors: [
+                  Color(0xFFB8860B),
+                  Color(0xFFDAA520),
+                  Color(0xFFF4E4BC)
+                ],
                 begin: Alignment.bottomRight,
                 end: Alignment.topLeft,
               ),
@@ -86,8 +253,7 @@ class HomePage extends StatelessWidget {
                       color: Colors.white,
                       height: 1.2,
                     ),
-                    
-                  ), 
+                  ),
                 ),
                 Container(
                   height: 120,
@@ -108,7 +274,7 @@ class HomePage extends StatelessWidget {
 
           const SizedBox(height: 30),
 
-          // 🎶 Feature Cards Grid
+          // Feature Cards Grid
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -146,23 +312,27 @@ class HomePage extends StatelessWidget {
         ],
       ),
 
-      // 🎵 Bottom Navigation
+      // Bottom Navigation
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFFDAA520),
         unselectedItemColor: const Color(0xFF8B7355),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.search_outlined), label: "Search"),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: "Notifications"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined), label: "Home"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.search_outlined), label: "Search"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_outlined), label: "Notifications"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline), label: "Profile"),
         ],
       ),
     );
   }
 }
 
-// 🔥 Reusable Feature Card Widget
+// Reusable Feature Card Widget
 class FeatureCard extends StatelessWidget {
   final IconData icon;
   final List<Color> gradient;
