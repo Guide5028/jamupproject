@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../utils/colors.dart';
-import '../../utils/fonts.dart';
-import '../../utils/constants.dart';
-import '../../models/musician.dart';
-import '../../models/venue.dart';
+import 'package:jamup_project/models/musician.dart';
+import 'package:jamup_project/models/venue.dart';
+import 'package:jamup_project/widgets/app_image.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -16,41 +14,44 @@ class _SearchPageState extends State<SearchPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Sample data
+  // Dummy data (replace with API or DB later)
   final List<Musician> musicians = [
     Musician(
-        id: '1',
-        name: 'Alice',
-        genres: ['EDM', 'Dance'],
-        type: 'Solo',
-        profileImage: AppConstants.localPlaceholder),
+      name: "Alice Smith",
+      genre: "Jazz",
+      type: "Solo",
+      imageUrl: "assets/images/musician1.jpg",
+    ),
     Musician(
-        id: '2',
-        name: 'Bob & Band',
-        genres: ['Jazz', 'Pop'],
-        type: 'Band',
-        profileImage: AppConstants.localPlaceholder),
+      name: "The Beats",
+      genre: "Rock",
+      type: "Band",
+      imageUrl: "assets/images/musician2.jpg",
+    ),
+    Musician(
+      name: "DJ Pulse",
+      genre: "EDM",
+      type: "Solo",
+      imageUrl: "assets/images/musician3.jpg",
+    ),
   ];
 
   final List<Venue> venues = [
     Venue(
-        id: '1',
-        name: 'Club Paradise',
-        type: 'Club',
-        location: 'Downtown',
-        imageUrl: AppConstants.localPlaceholder),
+      name: "Groove Bar",
+      type: "Bar",
+      imageUrl: "assets/images/venue1.jpg",
+    ),
     Venue(
-        id: '2',
-        name: 'Sunset Restaurant',
-        type: 'Restaurant',
-        location: 'Beachside',
-        imageUrl: AppConstants.localPlaceholder),
+      name: "Moonlight Club",
+      type: "Club",
+      imageUrl: "assets/images/venue2.jpg",
+    ),
     Venue(
-        id: '3',
-        name: 'Moonlight Bar',
-        type: 'Bar',
-        location: 'City Center',
-        imageUrl: AppConstants.localPlaceholder),
+      name: "Jazz Garden",
+      type: "Restaurant",
+      imageUrl: "assets/images/venue3.jpg",
+    ),
   ];
 
   @override
@@ -65,104 +66,127 @@ class _SearchPageState extends State<SearchPage>
     super.dispose();
   }
 
-  Widget _buildMusicianCard(Musician musician) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 4,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        leading: SizedBox(
-          width: 50,
-          height: 50,
-          child: CircleAvatar(
-            backgroundImage: AssetImage(musician.profileImage),
-          ),
-        ),
-        title: Text(musician.name, style: AppFonts.textTheme.headlineMedium),
-        subtitle: Text(
-          "${musician.genres.join(', ')} • ${musician.type}",
-          style: AppFonts.textTheme.bodyMedium,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVenueCard(Venue venue) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 4,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        leading: SizedBox(
-          width: 50,
-          height: 50,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              venue.imageUrl,
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-        title: Text(venue.name, style: AppFonts.textTheme.headlineMedium),
-        subtitle: Text(
-          "${venue.type} • ${venue.location}",
-          style: AppFonts.textTheme.bodyMedium,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Tab Bar
-        Container(
-          color: AppColors.background,
-          child: TabBar(
-            controller: _tabController,
-            labelColor: AppColors.primaryGold,
-            unselectedLabelColor: AppColors.accentBrown,
-            indicatorColor: AppColors.primaryGold,
-            tabs: const [
-              Tab(text: 'Musicians'),
-              Tab(text: 'Venues'),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Search"),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Theme.of(context).primaryColor,
+          unselectedLabelColor: Colors.grey,
+          tabs: const [
+            Tab(text: "Musicians"),
+            Tab(text: "Venues"),
+          ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildMusicianGrid(),
+          _buildVenueGrid(),
+        ],
+      ),
+    );
+  }
 
-        // Tab Views
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
+  // 🔹 Grid for musicians
+  Widget _buildMusicianGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: musicians.length,
+      itemBuilder: (context, index) {
+        final musician = musicians[index];
+        return Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Musicians tab
-              ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: musicians.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildMusicianCard(musicians[index]),
-                  );
-                },
+              Expanded(
+                child: AppImage(
+                  imageUrl: musician.imageUrl,
+                  borderRadius: 12,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
-              // Venues tab
-              ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: venues.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildVenueCard(venues[index]),
-                  );
-                },
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: [
+                    Text(
+                      musician.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    Text(
+                      "${musician.genre} • ${musician.type}",
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+
+  // 🔹 Grid for venues
+  Widget _buildVenueGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: venues.length,
+      itemBuilder: (context, index) {
+        final venue = venues[index];
+        return Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppImage(
+                  imageUrl: venue.imageUrl,
+                  borderRadius: 12,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      venue.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      venue.type,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
