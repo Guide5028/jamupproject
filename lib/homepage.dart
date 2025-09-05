@@ -82,7 +82,7 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'JamUP Menu',
+                    'JamUP',
                     style: GoogleFonts.roboto(
                       color: Colors.white,
                       fontSize: 26,
@@ -111,93 +111,77 @@ class HomePage extends StatelessWidget {
 
                 const Divider(thickness: 1, height: 30),
 
-                // Services section
+                // Services Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text('Services',
                       style: GoogleFonts.roboto(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF8B7355))),
                 ),
-                ExpansionTile(
-                  leading: const Icon(Icons.build_circle_outlined,
-                      color: Color(0xFF2C1810)),
-                  title: Text('Manage Services',
+                // Services Items
+                ListTile(
+                  leading:
+                      const Icon(Icons.book_online, color: Color(0xFF2C1810)),
+                  title: Text('Book Talent',
                       style: GoogleFonts.inter(fontSize: 16)),
-                  childrenPadding: const EdgeInsets.only(left: 40),
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.book_online,
-                          color: Color(0xFF2C1810)),
-                      title: Text('Book Talent',
-                          style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.manage_accounts,
-                          color: Color(0xFF2C1810)),
-                      title: Text('Manage Talent',
-                          style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                    ListTile(
-                      leading:
-                          const Icon(Icons.search, color: Color(0xFF2C1810)),
-                      title: Text('Discover Talent',
-                          style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                  ],
+                  onTap: () {},
+                ),
+                ListTile(
+                  leading: const Icon(Icons.manage_accounts,
+                      color: Color(0xFF2C1810)),
+                  title: Text('Manage Talent',
+                      style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+                ListTile(
+                  leading: const Icon(Icons.search, color: Color(0xFF2C1810)),
+                  title: Text('Discover Talent',
+                      style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
                 ),
 
                 const Divider(thickness: 1, height: 30),
 
-                // Resources section
+                // Resources Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text('Resources',
                       style: GoogleFonts.roboto(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF8B7355))),
                 ),
-                ExpansionTile(
-                  leading: const Icon(Icons.folder_open_outlined,
+                // Resources Items
+                ListTile(
+                  leading: const Icon(Icons.support_agent_outlined,
                       color: Color(0xFF2C1810)),
-                  title: Text('View Resources',
+                  title:
+                      Text('Support', style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined,
+                      color: Color(0xFF2C1810)),
+                  title:
+                      Text('Privacy', style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+                ListTile(
+                  leading: const Icon(Icons.rule_folder_outlined,
+                      color: Color(0xFF2C1810)),
+                  title: Text('Terms', style: GoogleFonts.inter(fontSize: 16)),
+                  onTap: () {},
+                ),
+                ListTile(
+                  leading:
+                      const Icon(Icons.help_outline, color: Color(0xFF2C1810)),
+                  title: Text('Help Center',
                       style: GoogleFonts.inter(fontSize: 16)),
-                  childrenPadding: const EdgeInsets.only(left: 40),
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.support_agent_outlined,
-                          color: Color(0xFF2C1810)),
-                      title: Text('Support',
-                          style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.privacy_tip_outlined,
-                          color: Color(0xFF2C1810)),
-                      title: Text('Privacy',
-                          style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.rule_folder_outlined,
-                          color: Color(0xFF2C1810)),
-                      title:
-                          Text('Terms', style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.help_outline,
-                          color: Color(0xFF2C1810)),
-                      title: Text('Help Center',
-                          style: GoogleFonts.inter(fontSize: 14)),
-                      onTap: () {},
-                    ),
-                  ],
+                  onTap: () {},
                 ),
 
                 const SizedBox(height: 30),
