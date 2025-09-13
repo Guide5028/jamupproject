@@ -52,7 +52,7 @@ class MusicianDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Type + Genre tags
+                // Tags
                 Wrap(
                   spacing: 8,
                   children: [
@@ -75,7 +75,7 @@ class MusicianDetailPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Organizer / Profile
+                // Profile row
                 Row(
                   children: [
                     const CircleAvatar(
@@ -97,7 +97,7 @@ class MusicianDetailPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Contact / Book button
+                // Book button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -109,13 +109,14 @@ class MusicianDetailPage extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-                      // TODO: connect to booking or messaging API
+                      // TODO: connect booking/messaging
                     },
                     child: Text("Book Now",
                         style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        )),
                   ),
                 ),
               ],
@@ -126,7 +127,7 @@ class MusicianDetailPage extends StatelessWidget {
     );
   }
 
-  // 🔹 Small genre/type tag
+  // 🔹 Tag widget
   Widget _buildTag(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

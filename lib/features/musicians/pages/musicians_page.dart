@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/musician.dart';
-import 'musician_detail_page.dart'; // reuse existing detail page
+import 'musician_detail_page.dart';
+import '../widgets/musician_card.dart';
 
 class MusiciansPage extends StatefulWidget {
   const MusiciansPage({super.key});
@@ -115,68 +116,11 @@ class _MusiciansPageState extends State<MusiciansPage> {
               ),
               itemCount: filtered.length,
               itemBuilder: (context, i) {
-                final m = filtered[i];
-                return _musicianCard(context, m);
+                return MusicianCard(musician: filtered[i]);
               },
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // 🔹 Musician Card
-  Widget _musicianCard(BuildContext context, Musician musician) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MusicianDetailPage(musician: musician),
-          ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                musician.imageUrl,
-                height: 100,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(musician.name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 4),
-                  Text("${musician.type} • ${musician.genre}",
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.accentBrown)),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

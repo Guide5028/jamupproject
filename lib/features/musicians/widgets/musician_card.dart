@@ -34,7 +34,6 @@ class MusicianCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: Image.network(
@@ -44,7 +43,6 @@ class MusicianCard extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
-            // Info
             Padding(
               padding: const EdgeInsets.all(8),
               child: Column(
