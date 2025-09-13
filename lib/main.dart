@@ -6,7 +6,7 @@ import 'core/constants/app_constants.dart';
 // Pages
 import 'features/home/pages/home_page.dart';
 import 'features/gigs/pages/gig_page.dart';
-import 'features/profile/profile_page.dart';
+import 'features/profile/pages/profile_page.dart';
 import 'features/musicians/pages/musicians_page.dart';
 import 'features/messages/pages/messages_page.dart';
 
