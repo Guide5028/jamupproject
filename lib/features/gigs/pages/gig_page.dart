@@ -104,6 +104,7 @@ class _GigPageState extends State<GigPage> {
                   child: ChoiceChip(
                     label: Text(f),
                     selected: isSelected,
+                    // ignore: deprecated_member_use
                     selectedColor: AppColors.primaryGold.withOpacity(0.8),
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : AppColors.darkBrown,

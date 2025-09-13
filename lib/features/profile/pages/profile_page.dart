@@ -36,12 +36,14 @@ class ProfilePage extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundImage: NetworkImage(user["image"]!),
+                  backgroundImage: NetworkImage(user["image"] as String),
                 ),
                 const SizedBox(height: 12),
-                Text(user["name"]!, style: AppFonts.textTheme.headlineLarge),
+                Text(user["name"]! as String
+                , style: AppFonts.textTheme.headlineLarge),
                 const SizedBox(height: 6),
-                Text(user["bio"]!, style: AppFonts.textTheme.bodyMedium),
+                Text(user["bio"]! as String
+                , style: AppFonts.textTheme.bodyMedium),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(

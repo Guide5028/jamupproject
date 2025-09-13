@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
+import '../../messages/pages/chat_page.dart';
 
 class GigDetailPage extends StatelessWidget {
   final Gig gig;
@@ -66,11 +67,13 @@ class GigDetailPage extends StatelessWidget {
                 // Location + Date
                 Row(
                   children: [
-                    const Icon(Icons.location_on, size: 16, color: AppColors.accentBrown),
+                    const Icon(Icons.location_on,
+                        size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
                     Text(gig.location, style: AppFonts.textTheme.bodyMedium),
                     const SizedBox(width: 12),
-                    const Icon(Icons.calendar_today, size: 16, color: AppColors.accentBrown),
+                    const Icon(Icons.calendar_today,
+                        size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
                     Text(gig.date, style: AppFonts.textTheme.bodyMedium),
                   ],
@@ -93,14 +96,16 @@ class GigDetailPage extends StatelessWidget {
                     const CircleAvatar(
                       radius: 28,
                       backgroundColor: AppColors.primaryGold,
-                      child: Icon(Icons.business, color: Colors.white, size: 28),
+                      child:
+                          Icon(Icons.business, color: Colors.white, size: 28),
                     ),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Organizer", style: AppFonts.textTheme.bodyMedium),
-                        Text("Venue / Host", style: AppFonts.textTheme.headlineMedium),
+                        Text("Venue / Host",
+                            style: AppFonts.textTheme.headlineMedium),
                       ],
                     ),
                   ],
@@ -119,7 +124,27 @@ class GigDetailPage extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-                      // TODO: connect to booking API
+                      // TODO: replace with real booking creation via API
+                      final booking = {
+                        "id": DateTime.now().toString(), // mock ID
+                        "gigId": gig.id,
+                        "musicianId": "mock-musician-id",
+                        "venueId": "mock-venue-id",
+                        "status": "pending",
+                        "chatId": "chat-${gig.id}",
+                      };
+
+                      // Navigate to ChatPage (with mock data)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatPage(
+                            name: gig.location, // use venue name as chat title
+                            avatar: gig
+                                .imageUrl, // temporary, can be venue logo later
+                          ),
+                        ),
+                      );
                     },
                     child: Text("Book Now",
                         style: GoogleFonts.inter(
