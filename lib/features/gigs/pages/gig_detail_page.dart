@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_fonts.dart';
-import '../../../../models/gig.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_fonts.dart';
+import '../../../models/gig.dart';
 
 class GigDetailPage extends StatelessWidget {
   final Gig gig;

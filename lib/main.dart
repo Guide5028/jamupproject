@@ -6,8 +6,8 @@ import 'core/constants/app_constants.dart';
 // Pages
 import 'features/home/pages/home_page.dart';
 import 'features/gigs/pages/gig_page.dart';
-import 'features/search/pages/search_page.dart'; // now used for Musicians
 import 'features/profile/profile_page.dart';
+import 'features/musicians/pages/musicians_page.dart';
 
 void main() {
   runApp(const JamUpApp());
@@ -45,7 +45,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _pages = const [
     HomePage(),
     GigPage(),
-    SearchPage(), // now used for Musicians
+    MusiciansPage(),
     Center(child: Text("💬 Messages Page")), // TODO: real messages page
     ProfilePage(),
   ];

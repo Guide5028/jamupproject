@@ -3,7 +3,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
 import '../../gigs/pages/gig_detail_page.dart';
-
+import '../../gigs/pages/gig_page.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -122,7 +122,7 @@ class HomePage extends StatelessWidget {
 
           // 🔹 Nearby Gigs
           _sectionHeader("Nearby Gigs", onSeeAll: () {
-            // TODO: navigate to Gigs page
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const GigPage()));
           }),
           GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20),

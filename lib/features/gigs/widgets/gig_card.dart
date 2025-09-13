@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/gig.dart';
-import '../../gigs/pages/gig_detail_page.dart';
+import '../pages/gig_detail_page.dart';
 
 class GigCard extends StatelessWidget {
   final Gig gig;
