@@ -8,6 +8,7 @@ import 'features/home/pages/home_page.dart';
 import 'features/gigs/pages/gig_page.dart';
 import 'features/profile/profile_page.dart';
 import 'features/musicians/pages/musicians_page.dart';
+import 'features/messages/pages/messages_page.dart';
 
 void main() {
   runApp(const JamUpApp());
@@ -46,7 +47,7 @@ class _MainNavigationState extends State<MainNavigation> {
     HomePage(),
     GigPage(),
     MusiciansPage(),
-    Center(child: Text("💬 Messages Page")), // TODO: real messages page
+    MessagesPage(),
     ProfilePage(),
   ];
 
@@ -65,11 +66,16 @@ class _MainNavigationState extends State<MainNavigation> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.event_outlined), label: "Gigs"),
-          BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: "Musicians"),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: "Messages"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined), label: "Home"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.event_outlined), label: "Gigs"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline), label: "Musicians"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline), label: "Messages"),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline), label: "Profile"),
         ],
       ),
     );
