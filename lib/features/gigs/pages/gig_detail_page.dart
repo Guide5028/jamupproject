@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ new
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
@@ -9,6 +10,47 @@ class GigDetailPage extends StatelessWidget {
   final Gig gig;
 
   const GigDetailPage({super.key, required this.gig});
+
+  Future<void> _bookGig(BuildContext context) async {
+    final supabase = Supabase.instance.client;
+
+    try {
+      // ✅ Insert booking
+      final booking = await supabase.from('bookings').insert({
+        'gig_id': gig.id,
+        'musician_id': 'mock-musician-id', // TODO: replace with real user ID
+        'venue_id': 'mock-venue-id',       // TODO: replace with real venue ID
+        'status': 'pending',
+      }).select().single();
+
+      // ✅ Create chat linked to booking
+      final chat = await supabase.from('chats').insert({
+        'booking_id': booking['id'],
+      }).select().single();
+
+      // ✅ Insert system message
+      await supabase.from('messages').insert({
+        'chat_id': chat['id'],
+        'text': '⏳ Booking request sent',
+        'type': 'system',
+      });
+
+      // ✅ Navigate to chat page
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(
+            name: gig.location,   // show venue name as chat title
+            avatar: gig.imageUrl, // temporary, later use venue logo
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Booking failed: $e")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,29 +165,7 @@ class GigDetailPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: () {
-                      // TODO: replace with real booking creation via API
-                      final booking = {
-                        "id": DateTime.now().toString(), // mock ID
-                        "gigId": gig.id,
-                        "musicianId": "mock-musician-id",
-                        "venueId": "mock-venue-id",
-                        "status": "pending",
-                        "chatId": "chat-${gig.id}",
-                      };
-
-                      // Navigate to ChatPage (with mock data)
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatPage(
-                            name: gig.location, // use venue name as chat title
-                            avatar: gig
-                                .imageUrl, // temporary, can be venue logo later
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: () => _bookGig(context),
                     child: Text("Book Now",
                         style: GoogleFonts.inter(
                           fontSize: 16,

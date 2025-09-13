@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_fonts.dart';
 import 'core/constants/app_constants.dart';
@@ -10,7 +11,15 @@ import 'features/profile/pages/profile_page.dart';
 import 'features/musicians/pages/musicians_page.dart';
 import 'features/messages/pages/messages_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Supabase
+  await Supabase.initialize(
+    url: 'https://yaxfmxenmotfjvzdyphz.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlheGZteGVubW90Zmp2emR5cGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3NzUzMjMsImV4cCI6MjA3MzM1MTMyM30.C2NEuCHEx36DcT3L49p3KDTn0NMVfAa1jUKJVc49cro',
+  );
+
   runApp(const JamUpApp());
 }
 
