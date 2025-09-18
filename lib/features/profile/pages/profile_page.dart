@@ -1,23 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // NEW
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import 'setting_page.dart';
 import 'edit_profile_page.dart';
+import '../../auth/pages/login_page.dart'; // NEW
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    await Supabase.instance.client.auth.signOut(); // NEW
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()), // NEW
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Mock user (later this will come from backend/auth provider)
-    final user = {
-      "name": "John Doe",
-      "role": "Musician", // or "Venue Owner"
-      "bio": "Jazz • Saxophone • Bangkok",
-      "image": "https://via.placeholder.com/200.png?text=User",
-      "genres": ["Jazz", "Blues"],
-      "venueType": null, // if venue: "Club", "Bar", etc.
-    };
+    final user = Supabase.instance.client.auth.currentUser; // NEW
+
+    // If no user, show login prompt
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text("No user logged in")),
+      );
+    }
+
+    // Extract user data
+    final meta = user.userMetadata ?? {};
+    final name = meta['name'] ?? "Unknown";
+    final role = meta['role'] ?? "musician"; // musician or venue
+    final bio = meta['bio'] ?? "";
+    final image = meta['avatar_url'] ?? "https://via.placeholder.com/200.png?text=User";
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -36,14 +55,12 @@ class ProfilePage extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundImage: NetworkImage(user["image"] as String),
+                  backgroundImage: NetworkImage(image),
                 ),
                 const SizedBox(height: 12),
-                Text(user["name"]! as String
-                , style: AppFonts.textTheme.headlineLarge),
+                Text(name, style: AppFonts.textTheme.headlineLarge),
                 const SizedBox(height: 6),
-                Text(user["bio"]! as String
-                , style: AppFonts.textTheme.bodyMedium),
+                Text(bio, style: AppFonts.textTheme.bodyMedium),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -72,11 +89,11 @@ class ProfilePage extends StatelessWidget {
           const Divider(),
 
           // 🔹 Role-Specific Section
-          if (user["role"] == "Musician")
+          if (role == "musician")
             _menuItem(Icons.music_note_outlined, "My Bookings", () {
               // TODO: navigate to musician bookings
             }),
-          if (user["role"] == "Venue Owner")
+          if (role == "venue")
             _menuItem(Icons.event_outlined, "My Gigs", () {
               // TODO: navigate to venue gigs
             }),
@@ -105,7 +122,7 @@ class ProfilePage extends StatelessWidget {
 
           // 🔹 Auth
           _menuItem(Icons.logout, "Logout", () {
-            // TODO: logout
+            _logout(context); // NEW
           }),
         ],
       ),

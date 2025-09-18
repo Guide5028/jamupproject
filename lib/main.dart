@@ -10,6 +10,7 @@ import 'features/gigs/pages/gig_page.dart';
 import 'features/profile/pages/profile_page.dart';
 import 'features/musicians/pages/musicians_page.dart';
 import 'features/messages/pages/messages_page.dart';
+import 'features/auth/pages/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +38,10 @@ class JamUpApp extends StatelessWidget {
         textTheme: AppFonts.textTheme,
         useMaterial3: true,
       ),
-      home: const MainNavigation(),
+      //check if user logged in
+      home: Supabase.instance.client.auth.currentUser == null
+          ? const LoginPage()
+          : const MainNavigation(),
     );
   }
 }
