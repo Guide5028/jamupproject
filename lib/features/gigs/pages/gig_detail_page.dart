@@ -1,47 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ new
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
 import '../../messages/pages/chat_page.dart';
+import '../../booking/data/booking_repository.dart'; // 👈 NEW
 
 class GigDetailPage extends StatelessWidget {
   final Gig gig;
+  final BookingRepository bookingRepo = BookingRepository(); // 👈 NEW
 
-  const GigDetailPage({super.key, required this.gig});
+  GigDetailPage({super.key, required this.gig});
 
   Future<void> _bookGig(BuildContext context) async {
-    final supabase = Supabase.instance.client;
-
     try {
-      // ✅ Insert booking
-      final booking = await supabase.from('bookings').insert({
-        'gig_id': gig.id,
-        'musician_id': 'mock-musician-id', // TODO: replace with real user ID
-        'venue_id': 'mock-venue-id',       // TODO: replace with real venue ID
-        'status': 'pending',
-      }).select().single();
+      // ✅ Create booking using repo
+      final booking = await bookingRepo.createBooking(
+        gigId: gig.id,
+        musicianId: "mock-musician-id", // TODO: replace with real auth user.id
+        venueId: "mock-venue-id",       // TODO: replace with gig.venueId
+      );
 
-      // ✅ Create chat linked to booking
-      final chat = await supabase.from('chats').insert({
-        'booking_id': booking['id'],
-      }).select().single();
+      // ✅ Optional: insert chat + system message
+      // For now you could also move these into BookingRepository if you want
+      // e.g. bookingRepo.startChatForBooking(bookingId);
 
-      // ✅ Insert system message
-      await supabase.from('messages').insert({
-        'chat_id': chat['id'],
-        'text': '⏳ Booking request sent',
-        'type': 'system',
-      });
-
-      // ✅ Navigate to chat page
+      if (!context.mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => ChatPage(
-            name: gig.location,   // show venue name as chat title
-            avatar: gig.imageUrl, // temporary, later use venue logo
+            name: gig.location,
+            avatar: gig.imageUrl,
+            initialStatus: booking['status'], // pass "pending"
           ),
         ),
       );
