@@ -53,9 +53,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final user = supabase.auth.currentUser;
       if (user == null) return null;
 
-      final fileExt = file.path.split('.').last;
-      final fileName = "avatar.$fileExt"; // always overwrite same file
-      final filePath = "${user.id}/$fileName"; // 👈 per-user folder
+      final fileExt = file.path.split('.').last; //e.g. "jpg" or "png"
+      final fileName = "avatar.$fileExt"; // avatar.jpg or avatar.png
+      final filePath = "${user.id}/$fileName"; // e.g. 1234-uuid/avatar.jpg
 
       await supabase.storage.from('avatars').upload(
             filePath,
@@ -63,6 +63,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             fileOptions: const FileOptions(upsert: true), // overwrite old
           );
 
+      // Get public URL
       final publicUrl = supabase.storage.from('avatars').getPublicUrl(filePath);
       return publicUrl;
     } catch (e) {
@@ -193,7 +194,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.primaryGold,
                         ),
