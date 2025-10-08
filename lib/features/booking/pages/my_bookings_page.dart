@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../messages/pages/chat_page.dart';
@@ -11,9 +13,12 @@ class MyBookingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final musicianId = user?.id ?? 'mock-musician-id'; // TODO: remove mock after auth
+
     return ChangeNotifierProvider(
       create: (_) => BookingController(BookingRepository())
-        ..loadBookingsForMusician("mock-musician-id"), // TODO: replace with auth user.id
+        ..loadBookingsForMusician(musicianId),
       child: Consumer<BookingController>(
         builder: (context, ctrl, _) {
           if (ctrl.loading) {
@@ -27,8 +32,15 @@ class MyBookingsPage extends StatelessWidget {
             );
           }
           if (ctrl.bookings.isEmpty) {
-            return const Scaffold(
-              body: Center(child: Text("No bookings found")),
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              appBar: AppBar(
+                title: const Text("My Bookings"),
+                backgroundColor: AppColors.background,
+                elevation: 0,
+                iconTheme: const IconThemeData(color: AppColors.darkBrown),
+              ),
+              body: const Center(child: Text("No bookings found")),
             );
           }
 
@@ -46,18 +58,23 @@ class MyBookingsPage extends StatelessWidget {
               separatorBuilder: (_, __) => const Divider(),
               itemBuilder: (context, i) {
                 final booking = ctrl.bookings[i];
-                final gig = booking['gigs'] ?? {};
-                final venue = gig['location'] ?? "Unknown venue";
+                final gig = (booking['gigs'] ?? {}) as Map<String, dynamic>;
+                final status = (booking['status'] ?? 'pending') as String;
+                final venue = (gig['location'] ?? 'Unknown venue') as String;
+                final title = (gig['title'] ?? 'Untitled gig') as String;
+                final date = (gig['date'] ?? '') as String;
+                final avatar = (gig['image_url'] ??
+                    'https://via.placeholder.com/150.png?text=$venue') as String;
 
-                // Pick icon color by status
+                // pick icon + color by status
                 IconData icon;
                 Color color;
-                switch (booking["status"]) {
-                  case "confirmed":
+                switch (status) {
+                  case 'confirmed':
                     icon = Icons.check_circle;
                     color = Colors.green;
                     break;
-                  case "declined":
+                  case 'declined':
                     icon = Icons.cancel;
                     color = Colors.red;
                     break;
@@ -68,12 +85,9 @@ class MyBookingsPage extends StatelessWidget {
 
                 return ListTile(
                   leading: Icon(icon, color: color),
-                  title: Text(gig["title"] ?? "Untitled gig",
-                      style: AppFonts.textTheme.bodyLarge),
-                  subtitle: Text(
-                    "$venue • ${gig["date"] ?? ""}",
-                    style: AppFonts.textTheme.bodyMedium,
-                  ),
+                  title: Text(title, style: AppFonts.textTheme.bodyLarge),
+                  subtitle:
+                      Text("$venue • $date", style: AppFonts.textTheme.bodyMedium),
                   trailing: const Icon(Icons.chat_bubble_outline,
                       color: AppColors.accentBrown),
                   onTap: () {
@@ -82,9 +96,8 @@ class MyBookingsPage extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => ChatPage(
                           name: venue,
-                          avatar: gig["image_url"] ??
-                              "https://via.placeholder.com/150.png?text=$venue",
-                          initialStatus: booking["status"] ?? "pending",
+                          avatar: avatar,
+                          initialStatus: status,
                         ),
                       ),
                     );

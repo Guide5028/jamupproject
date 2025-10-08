@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jamup_app/features/booking/pages/my_bookings_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // NEW
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
@@ -36,7 +37,8 @@ class ProfilePage extends StatelessWidget {
     final name = meta['name'] ?? "Unknown";
     final role = meta['role'] ?? "musician"; // musician or venue
     final bio = meta['bio'] ?? "";
-    final image = meta['avatar_url'] ?? "https://via.placeholder.com/200.png?text=User";
+    final image =
+        meta['avatar_url'] ?? "https://via.placeholder.com/200.png?text=User";
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -91,7 +93,10 @@ class ProfilePage extends StatelessWidget {
           // 🔹 Role-Specific Section
           if (role == "musician")
             _menuItem(Icons.music_note_outlined, "My Bookings", () {
-              // TODO: navigate to musician bookings
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyBookingsPage()),
+              );
             }),
           if (role == "venue")
             _menuItem(Icons.event_outlined, "My Gigs", () {
