@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jamup_app/features/auth/widgets/auth_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_fonts.dart';
@@ -39,9 +40,7 @@ class JamUpApp extends StatelessWidget {
         useMaterial3: true,
       ),
       //check if user logged in
-      home: Supabase.instance.client.auth.currentUser == null
-          ? const LoginPage()
-          : const MainNavigation(),
+      home: const AuthGate(),
     );
   }
 }

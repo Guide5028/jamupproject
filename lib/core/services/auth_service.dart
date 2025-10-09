@@ -3,49 +3,69 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final supabase = Supabase.instance.client;
 
-  // Sign up
+  // Sign up (email confirmation may be required → user can be null here)
   Future<AuthResponse> signUp({
     required String email,
     required String password,
     required String name,
     required String role, // "musician" or "venue"
   }) async {
-    final response = await supabase.auth.signUp(
+    final res = await supabase.auth.signUp(
       email: email,
       password: password,
       data: {
         'name': name,
         'role': role,
+        'avatar_url': null,
+        'bio': '',
       },
     );
 
-    // Also insert into users table
-    await supabase.from('users').insert({
-      'id': response.user!.id,
-      'name': name,
-      'email': email,
-      'role': role,
-    });
+    // If your project auto-confirms, res.user will be non-null and you can upsert.
+    if (res.user != null) {
+      await supabase.from('users').upsert({
+        'id': res.user!.id,
+        'email': email,
+        'name': name,
+        'role': role,
+        'avatar_url': null,
+        'bio': '',
+      });
+    }
 
-    return response;
+    return res;
   }
 
-  // Login
+  // Login (guarantee there's a row in public.users)
   Future<AuthResponse> signIn({
     required String email,
     required String password,
   }) async {
-    return await supabase.auth.signInWithPassword(
+    final res = await supabase.auth.signInWithPassword(
       email: email,
       password: password,
     );
+
+    final user = res.user;
+    if (user != null) {
+      // mirror minimal fields; you can fetch metadata if needed
+      await supabase.from('users').upsert({
+        'id': user.id,
+        'email': user.email,
+        // name/role might be in user.userMetadata; keep null-safe
+        'name': user.userMetadata?['name'],
+        'role': user.userMetadata?['role'],
+        'avatar_url': user.userMetadata?['avatar_url'],
+        'bio': user.userMetadata?['bio'],
+      });
+    }
+
+    return res;
   }
 
-  // Logout
   Future<void> signOut() async {
     await supabase.auth.signOut();
   }
 
-  // Get current user
   User? get currentUser => supabase.auth.currentUser;
 }
