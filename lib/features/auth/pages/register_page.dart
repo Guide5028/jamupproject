@@ -20,26 +20,28 @@ class _RegisterPageState extends State<RegisterPage> {
   bool loading = false;
 
   void _register() async {
-    setState(() => loading = true);
-    try {
-      await _auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        name: _nameController.text.trim(),
-        role: role,
-      );
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Register failed: $e")),
-      );
+  setState(() => loading = true);
+  try {
+    await _auth.signUp(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+      name: _nameController.text.trim(),
+      role: role,
+    );
+
+    // ✅ Let AuthGate switch the screen. No pushReplacement needed.
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Registered 🎉")));
     }
-    setState(() => loading = false);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Register failed: $e")),
+    );
   }
+  setState(() => loading = false);
+}
+
 
   @override
   Widget build(BuildContext context) {

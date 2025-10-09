@@ -45,6 +45,40 @@ class JamUpApp extends StatelessWidget {
   }
 }
 
+/// Watches Supabase auth state and shows either Login or the MainNavigation.
+/// No manual pushing from login/register needed—this reacts automatically.
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final supabase = Supabase.instance.client;
+
+    return StreamBuilder<AuthState>(
+      stream: supabase.auth.onAuthStateChange,
+      // Show last known state immediately to avoid flicker
+      builder: (context, snapshot) {
+        final session = supabase.auth.currentSession;
+
+        // While we wait for the first auth event, show a tiny splash
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (session == null) {
+          // Not signed in
+          return const LoginPage();
+        } else {
+          // Signed in
+          return const MainNavigation();
+        }
+      },
+    );
+  }
+}
+
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 

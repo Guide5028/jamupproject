@@ -19,24 +19,26 @@ class _LoginPageState extends State<LoginPage> {
   bool loading = false;
 
   void _login() async {
-    setState(() => loading = true);
-    try {
-      await _auth.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login failed: $e")),
-      );
+  setState(() => loading = true);
+  try {
+    await _auth.signIn(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
+
+    // ✅ No manual navigation needed. AuthGate will detect session and show MainNavigation.
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Logged in ✅")));
     }
-    setState(() => loading = false);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Login failed: $e")),
+    );
   }
+  setState(() => loading = false);
+}
+
 
   @override
   Widget build(BuildContext context) {
