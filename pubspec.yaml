@@ -14,7 +14,7 @@ dependencies:
   provider: ^6.1.5+1
   image_picker: ^1.0.7
   supabase_flutter: ^2.10.0
-
+  flutter_native_splash: ^2.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

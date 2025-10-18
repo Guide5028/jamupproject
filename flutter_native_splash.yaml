@@ -1,0 +1,21 @@
+flutter_native_splash:
+  # ✅ Global settings
+  color: "#F8F5F0"                         # matches AppColors.background
+  image: assets/images/jamup_logo.png      # make sure this is your transparent logo
+  android: true
+  ios: true
+  web: false
+
+  # ✅ Alignment
+  android_gravity: center
+  ios_content_mode: scaleAspectFit         # keeps proportions perfectly
+
+  # ✅ Light & dark modes
+  color_dark: "#F8F5F0"
+  image_dark: assets/images/jamup_logo.png
+
+  # ✅ Android 12 (uses a different splash mechanism)
+  android_12:
+    color: "#F8F5F0"
+    image: assets/images/jamup_logo.png
+    fullscreen: true

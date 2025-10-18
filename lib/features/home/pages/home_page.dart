@@ -4,30 +4,45 @@ import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
 import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  // Simple month formatter (no intl)
+  String _formatDate(DateTime d) {
+    const months = [
+      'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'
+    ];
+    final h = d.hour == 0 ? 12 : (d.hour > 12 ? d.hour - 12 : d.hour);
+    final ampm = d.hour >= 12 ? 'PM' : 'AM';
+    final mm = months[d.month - 1];
+    final m2 = d.minute.toString().padLeft(2, '0');
+    return '$mm ${d.day}, $h:$m2 $ampm';
+  }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
-    // Mock gigs data
+    // Mock gigs data (DateTime + venueId to match the model)
     final upcomingGigs = [
       Gig(
         id: "1",
         title: "Bangkok Jazz Night",
         location: "Saxophone Pub",
-        date: "Sep 20",
+        date: DateTime(DateTime.now().year, 9, 20, 21, 00),
         imageUrl: "https://via.placeholder.com/400x250.png?text=Jazz+Night",
-        genres: ["Jazz"],
+        genres: const ["Jazz"],
+        venueId: "demo-venue-1",
       ),
       Gig(
         id: "2",
         title: "EDM Festival",
         location: "Glow Club",
-        date: "Sep 25",
+        date: DateTime(DateTime.now().year, 9, 25, 22, 00),
         imageUrl: "https://via.placeholder.com/400x250.png?text=EDM+Festival",
-        genres: ["EDM", "Dance"],
+        genres: const ["EDM", "Dance"],
+        venueId: "demo-venue-2",
       ),
     ];
 
@@ -36,25 +51,28 @@ class HomePage extends StatelessWidget {
         id: "3",
         title: "Rock Night",
         location: "Hard Rock Cafe",
-        date: "Sep 18",
+        date: DateTime(DateTime.now().year, 9, 18, 21, 30),
         imageUrl: "https://via.placeholder.com/400x250.png?text=Rock+Night",
-        genres: ["Rock"],
+        genres: const ["Rock"],
+        venueId: "demo-venue-3",
       ),
       Gig(
         id: "4",
         title: "Acoustic Evening",
         location: "Brown Sugar Bar",
-        date: "Sep 21",
+        date: DateTime(DateTime.now().year, 9, 21, 20, 00),
         imageUrl: "https://via.placeholder.com/400x250.png?text=Acoustic+Evening",
-        genres: ["Acoustic"],
+        genres: const ["Acoustic"],
+        venueId: "demo-venue-4",
       ),
       Gig(
         id: "5",
         title: "HipHop Battle",
         location: "Urban Stage",
-        date: "Sep 23",
+        date: DateTime(DateTime.now().year, 9, 23, 22, 00),
         imageUrl: "https://via.placeholder.com/400x250.png?text=HipHop+Battle",
-        genres: ["HipHop"],
+        genres: const ["HipHop"],
+        venueId: "demo-venue-5",
       ),
     ];
 
@@ -101,7 +119,7 @@ class HomePage extends StatelessWidget {
             ),
           ),
 
-          // 🔹 Upcoming Gigs
+          // 🔹 Upcoming Gigs (horizontal, swipe)
           _sectionHeader("Upcoming Gigs", onSeeAll: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const GigPage()));
           }),
@@ -113,14 +131,14 @@ class HomePage extends StatelessWidget {
               itemCount: upcomingGigs.length,
               itemBuilder: (context, i) {
                 final gig = upcomingGigs[i];
-                return _gigCardHorizontal(context, gig);
+                return _gigCardHorizontal(context, gig, _formatDate);
               },
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // 🔹 Nearby Gigs
+          // 🔹 Nearby Gigs (grid 2-up)
           _sectionHeader("Nearby Gigs", onSeeAll: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const GigPage()));
           }),
@@ -137,7 +155,7 @@ class HomePage extends StatelessWidget {
             itemCount: nearbyGigs.length,
             itemBuilder: (context, i) {
               final gig = nearbyGigs[i];
-              return _gigCardGrid(context, gig);
+              return _gigCardGrid(context, gig, _formatDate);
             },
           ),
 
@@ -166,7 +184,11 @@ class HomePage extends StatelessWidget {
   }
 
   // 🔹 Horizontal gig card
-  Widget _gigCardHorizontal(BuildContext context, Gig gig) {
+  Widget _gigCardHorizontal(
+    BuildContext context,
+    Gig gig,
+    String Function(DateTime) formatDate,
+  ) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -199,6 +221,13 @@ class HomePage extends StatelessWidget {
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 120,
+                  color: AppColors.background,
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.image_not_supported,
+                      color: AppColors.accentBrown),
+                ),
               ),
             ),
             Padding(
@@ -210,7 +239,7 @@ class HomePage extends StatelessWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 4),
-                  Text("${gig.location} • ${gig.date}",
+                  Text("${gig.location} • ${formatDate(gig.date)}",
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.accentBrown)),
                 ],
@@ -223,7 +252,11 @@ class HomePage extends StatelessWidget {
   }
 
   // 🔹 Grid gig card
-  Widget _gigCardGrid(BuildContext context, Gig gig) {
+  Widget _gigCardGrid(
+    BuildContext context,
+    Gig gig,
+    String Function(DateTime) formatDate,
+  ) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -254,6 +287,13 @@ class HomePage extends StatelessWidget {
                 height: 100,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 100,
+                  color: AppColors.background,
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.image_not_supported,
+                      color: AppColors.accentBrown),
+                ),
               ),
             ),
             Padding(
@@ -265,7 +305,7 @@ class HomePage extends StatelessWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 4),
-                  Text("${gig.location} • ${gig.date}",
+                  Text("${gig.location} • ${formatDate(gig.date)}",
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.accentBrown)),
                 ],

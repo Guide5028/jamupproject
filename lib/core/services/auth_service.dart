@@ -19,6 +19,7 @@ class AuthService {
         'avatar_url': null,
         'bio': '',
       },
+      emailRedirectTo: 'jamup://auth-callback', 
     );
 
     // If your project auto-confirms, res.user will be non-null and you can upsert.
