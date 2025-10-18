@@ -3,41 +3,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final supabase = Supabase.instance.client;
 
-  // Sign up (email confirmation may be required → user can be null here)
   Future<AuthResponse> signUp({
     required String email,
     required String password,
     required String name,
-    required String role, // "musician" or "venue"
+    required String role, // "musician" | "venue"
   }) async {
     final res = await supabase.auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo: 'jamup://auth-callback', // deep link
       data: {
         'name': name,
         'role': role,
-        'avatar_url': null,
-        'bio': '',
       },
-      emailRedirectTo: 'jamup://auth-callback', 
     );
-
-    // If your project auto-confirms, res.user will be non-null and you can upsert.
-    if (res.user != null) {
-      await supabase.from('users').upsert({
-        'id': res.user!.id,
-        'email': email,
-        'name': name,
-        'role': role,
-        'avatar_url': null,
-        'bio': '',
-      });
-    }
-
+    // ⛔️ Do NOT insert into public.users here (no session yet).
     return res;
   }
 
-  // Login (guarantee there's a row in public.users)
   Future<AuthResponse> signIn({
     required String email,
     required String password,
@@ -46,22 +30,33 @@ class AuthService {
       email: email,
       password: password,
     );
+    await ensureUserRow(); // 👈 create profile row after real login
+    return res;
+  }
 
-    final user = res.user;
-    if (user != null) {
-      // mirror minimal fields; you can fetch metadata if needed
-      await supabase.from('users').upsert({
+  Future<void> ensureUserRow() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    final existing = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (existing == null) {
+      final meta = user.userMetadata ?? {};
+      await supabase.from('users').insert({
         'id': user.id,
+        'name': meta['name'] ?? user.email?.split('@').first ?? 'User',
         'email': user.email,
-        // name/role might be in user.userMetadata; keep null-safe
-        'name': user.userMetadata?['name'],
-        'role': user.userMetadata?['role'],
-        'avatar_url': user.userMetadata?['avatar_url'],
-        'bio': user.userMetadata?['bio'],
+        'role': meta['role'] ?? 'musician',
+        'avatar_url': meta['avatar_url'],
+        'bio': meta['bio'],
+        'genres': meta['genres'],
+        'venue_type': meta['venueType'],
       });
     }
-
-    return res;
   }
 
   Future<void> signOut() async {

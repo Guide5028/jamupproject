@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/auth_service.dart';
-import '../../home/pages/home_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,83 +11,179 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final _formKey = GlobalKey<FormState>();
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-  String role = "musician";
+
+  String role = "musician"; // "musician" | "venue"
   final _auth = AuthService();
   bool loading = false;
+  bool _obscure = true;
 
-  void _register() async {
-  setState(() => loading = true);
-  try {
-    await _auth.signUp(
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-      name: _nameController.text.trim(),
-      role: role,
-    );
-
-    // ✅ Let AuthGate switch the screen. No pushReplacement needed.
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Registered 🎉")));
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Register failed: $e")),
-    );
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    super.dispose();
   }
-  setState(() => loading = false);
-}
 
+  Future<void> _register() async {
+    if (loading) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => loading = true);
+    try {
+      await _auth.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        name: _nameController.text.trim(),
+        role: role,
+      );
+
+      if (!mounted) return;
+      // AuthGate in main.dart will take over navigation after session is set.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Registered 🎉 Check your email to confirm."),
+        ),
+      );
+    } catch (e) {
+      // Surface a friendly message
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Register failed: $msg")),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text("Register for JamUP",
-                style: GoogleFonts.interTight(
-                    fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: "Name"),
-            ),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: "Email"),
-            ),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: "Password"),
-            ),
-            const SizedBox(height: 20),
-            DropdownButton<String>(
-              value: role,
-              onChanged: (val) => setState(() => role = val!),
-              items: const [
-                DropdownMenuItem(value: "musician", child: Text("Musician")),
-                DropdownMenuItem(value: "venue", child: Text("Venue")),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                const SizedBox(height: 24),
+                Text(
+                  "Register for JamUP",
+                  style: GoogleFonts.interTight(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkBrown,
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Name
+                TextFormField(
+                  controller: _nameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: "Name",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return "Please enter your name";
+                    }
+                    if (v.trim().length < 2) {
+                      return "Name is too short";
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Email
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: "Email",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    final value = v?.trim() ?? '';
+                    if (value.isEmpty) return "Please enter your email";
+                    final ok = RegExp(r"^[^@\s]+@[^@\s]+\.[^@\s]+$").hasMatch(value);
+                    if (!ok) return "Enter a valid email";
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Password
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscure,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                    ),
+                  ),
+                  validator: (v) {
+                    final value = v ?? '';
+                    if (value.isEmpty) return "Please enter a password";
+                    if (value.length < 6) return "Minimum 6 characters";
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Role
+                DropdownButtonFormField<String>(
+                  value: role,
+                  decoration: const InputDecoration(
+                    labelText: "Role",
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: "musician", child: Text("Musician")),
+                    DropdownMenuItem(value: "venue", child: Text("Venue")),
+                  ],
+                  onChanged: (val) => setState(() => role = val ?? "musician"),
+                ),
+                const SizedBox(height: 24),
+
+                // Register button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: loading ? null : _register,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGold,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: loading
+                        ? const SizedBox(
+                            height: 20, width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text("Register", style: TextStyle(color: Colors.white)),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: loading ? null : _register,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGold,
-              ),
-              child: loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Register"),
-            ),
-          ],
+          ),
         ),
       ),
     );

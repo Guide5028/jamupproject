@@ -108,7 +108,7 @@ class GigDetailPage extends StatelessWidget {
                     const Icon(Icons.calendar_today,
                         size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
-                    Text(gig.date, style: AppFonts.textTheme.bodyMedium),
+                    Text(gig.date as String, style: AppFonts.textTheme.bodyMedium),
                   ],
                 ),
                 const SizedBox(height: 16),
