@@ -20,6 +20,9 @@ Future<void> main() async {
   await Supabase.initialize(
     url: 'https://yaxfmxenmotfjvzdyphz.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlheGZteGVubW90Zmp2emR5cGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3NzUzMjMsImV4cCI6MjA3MzM1MTMyM30.C2NEuCHEx36DcT3L49p3KDTn0NMVfAa1jUKJVc49cro',
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
   );
 
   runApp(const JamUpApp());
