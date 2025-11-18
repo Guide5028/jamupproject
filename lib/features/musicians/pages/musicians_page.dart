@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/musician.dart';
-import 'musician_detail_page.dart';
 import '../widgets/musician_card.dart';
+import '../data/musician_repository.dart';
 
 class MusiciansPage extends StatefulWidget {
   const MusiciansPage({super.key});
@@ -13,41 +13,11 @@ class MusiciansPage extends StatefulWidget {
 }
 
 class _MusiciansPageState extends State<MusiciansPage> {
+  final _repo = MusicianRepository();
+  late Future<List<Musician>> _future;
   String selectedFilter = "";
 
-  // 🔹 Mock musicians data
-  final List<Musician> musicians = [
-    Musician(
-      id: "1",
-      name: "DJ Nova",
-      genre: "EDM",
-      type: "Solo",
-      imageUrl: "https://via.placeholder.com/400x250.png?text=DJ+Nova",
-    ),
-    Musician(
-      id: "2",
-      name: "Luna Jazz Duo",
-      genre: "Jazz",
-      type: "Duo",
-      imageUrl: "https://via.placeholder.com/400x250.png?text=Jazz+Duo",
-    ),
-    Musician(
-      id: "3",
-      name: "The HipHop Crew",
-      genre: "HipHop",
-      type: "Band",
-      imageUrl: "https://via.placeholder.com/400x250.png?text=HipHop+Crew",
-    ),
-    Musician(
-      id: "4",
-      name: "Pop Queen",
-      genre: "Pop",
-      type: "Solo",
-      imageUrl: "https://via.placeholder.com/400x250.png?text=Pop+Queen",
-    ),
-  ];
-
-  // 🔹 Filters
+  // Filters stay the same
   final List<String> filters = [
     "EDM",
     "Jazz",
@@ -59,14 +29,20 @@ class _MusiciansPageState extends State<MusiciansPage> {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final filtered = selectedFilter.isEmpty
-        ? musicians
-        : musicians.where((m) {
-            return m.genre.toLowerCase() == selectedFilter.toLowerCase() ||
-                m.type.toLowerCase() == selectedFilter.toLowerCase();
-          }).toList();
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
 
+  Future<List<Musician>> _load() => _repo.fetchAll();
+
+  Future<void> _refresh() async {
+    setState(() => _future = _load());
+    await _future;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -75,52 +51,108 @@ class _MusiciansPageState extends State<MusiciansPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.darkBrown),
       ),
-      body: Column(
-        children: [
-          // 🔹 Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: filters.map((f) {
-                final isSelected = selectedFilter == f;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text(f),
-                    selected: isSelected,
-                    selectedColor: AppColors.primaryGold.withOpacity(0.8),
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : AppColors.darkBrown,
-                    ),
-                    onSelected: (_) {
-                      setState(() {
-                        selectedFilter = isSelected ? "" : f;
-                      });
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+      body: FutureBuilder<List<Musician>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // 🔹 Musicians Grid
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.8,
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Failed to load musicians 😵',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    Text('${snap.error}',
+                        style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _refresh,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGold,
+                      ),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
-              itemCount: filtered.length,
-              itemBuilder: (context, i) {
-                return MusicianCard(musician: filtered[i]);
-              },
+            );
+          }
+
+          final all = snap.data ?? <Musician>[];
+
+          // client-side filter by genre OR type
+          final filtered = selectedFilter.isEmpty
+              ? all
+              : all.where((m) {
+                  final f = selectedFilter.toLowerCase();
+                  return m.genre.toLowerCase() == f ||
+                      m.type.toLowerCase() == f;
+                }).toList();
+
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: Column(
+              children: [
+                // 🔹 Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: filters.map((f) {
+                      final isSelected = selectedFilter == f;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ChoiceChip(
+                          label: Text(f),
+                          selected: isSelected,
+                          selectedColor:
+                              AppColors.primaryGold.withOpacity(0.8),
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.darkBrown,
+                          ),
+                          onSelected: (_) {
+                            setState(() {
+                              selectedFilter = isSelected ? "" : f;
+                            });
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                // 🔹 Musicians Grid
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const Center(child: Text("No musicians yet"))
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.8,
+                          ),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, i) {
+                            return MusicianCard(musician: filtered[i]);
+                          },
+                        ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

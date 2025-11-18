@@ -4,169 +4,166 @@ import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
 import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
+import '../../gigs/data/gig_repository.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  // Simple month formatter (no intl)
-  String _formatDate(DateTime d) {
-    const months = [
-      'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'
-    ];
-    final h = d.hour == 0 ? 12 : (d.hour > 12 ? d.hour - 12 : d.hour);
-    final ampm = d.hour >= 12 ? 'PM' : 'AM';
-    final mm = months[d.month - 1];
-    final m2 = d.minute.toString().padLeft(2, '0');
-    return '$mm ${d.day}, $h:$m2 $ampm';
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _repo = GigRepository();
+  late Future<List<List<Gig>>> _loadFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFuture = _load(); // run once
+  }
+
+  Future<List<List<Gig>>> _load() async {
+    final upcoming = await _repo.fetchUpcoming(limit: 10);
+    // TODO: replace with real nearby (by user location) when ready
+    final nearby = await _repo.fetchNearbyMock(limit: 6);
+    return [upcoming, nearby];
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _loadFuture = _load());
+    await _loadFuture;
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-
-    // Mock gigs data (DateTime + venueId to match the model)
-    final upcomingGigs = [
-      Gig(
-        id: "1",
-        title: "Bangkok Jazz Night",
-        location: "Saxophone Pub",
-        date: DateTime(DateTime.now().year, 9, 20, 21, 00),
-        imageUrl: "https://via.placeholder.com/400x250.png?text=Jazz+Night",
-        genres: const ["Jazz"],
-        venueId: "demo-venue-1",
-      ),
-      Gig(
-        id: "2",
-        title: "EDM Festival",
-        location: "Glow Club",
-        date: DateTime(DateTime.now().year, 9, 25, 22, 00),
-        imageUrl: "https://via.placeholder.com/400x250.png?text=EDM+Festival",
-        genres: const ["EDM", "Dance"],
-        venueId: "demo-venue-2",
-      ),
-    ];
-
-    final nearbyGigs = [
-      Gig(
-        id: "3",
-        title: "Rock Night",
-        location: "Hard Rock Cafe",
-        date: DateTime(DateTime.now().year, 9, 18, 21, 30),
-        imageUrl: "https://via.placeholder.com/400x250.png?text=Rock+Night",
-        genres: const ["Rock"],
-        venueId: "demo-venue-3",
-      ),
-      Gig(
-        id: "4",
-        title: "Acoustic Evening",
-        location: "Brown Sugar Bar",
-        date: DateTime(DateTime.now().year, 9, 21, 20, 00),
-        imageUrl: "https://via.placeholder.com/400x250.png?text=Acoustic+Evening",
-        genres: const ["Acoustic"],
-        venueId: "demo-venue-4",
-      ),
-      Gig(
-        id: "5",
-        title: "HipHop Battle",
-        location: "Urban Stage",
-        date: DateTime(DateTime.now().year, 9, 23, 22, 00),
-        imageUrl: "https://via.placeholder.com/400x250.png?text=HipHop+Battle",
-        genres: const ["HipHop"],
-        venueId: "demo-venue-5",
-      ),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: ListView(
-        children: [
-          // 🔹 Location Row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 40, 20, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+      body: FutureBuilder<List<List<Gig>>>(
+        future: _loadFuture,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.location_on,
-                        color: AppColors.primaryGold, size: 20),
-                    const SizedBox(width: 6),
-                    DropdownButton<String>(
-                      value: "Bangkok, TH",
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.keyboard_arrow_down,
-                          color: AppColors.darkBrown),
-                      items: const [
-                        DropdownMenuItem(
-                            value: "Bangkok, TH", child: Text("Bangkok, TH")),
-                        DropdownMenuItem(
-                            value: "New York, USA", child: Text("New York, USA")),
-                        DropdownMenuItem(
-                            value: "London, UK", child: Text("London, UK")),
-                      ],
-                      onChanged: (val) {
-                        // TODO: handle location change
-                      },
+                    const Text('Failed to load gigs 😵',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    Text('${snap.error}',
+                        style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _refresh,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGold,
+                      ),
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.notifications_outlined,
-                      color: AppColors.darkBrown),
+              ),
+            );
+          }
+
+          // Fallback empty lists if something is null
+          final data = snap.data ?? [<Gig>[], <Gig>[]];
+          final upcomingGigs = data[0];
+          final nearbyGigs = data[1];
+
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              children: [
+                // 🔹 Location + bell
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 40, 20, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.location_on,
+                              color: AppColors.primaryGold, size: 20),
+                          SizedBox(width: 6),
+                          Text("Bangkok, TH"),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.notifications_outlined,
+                            color: AppColors.darkBrown),
+                      ),
+                    ],
+                  ),
                 ),
+
+                // 🔹 Upcoming
+                _sectionHeader(context, "Upcoming Gigs", onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GigPage()),
+                  );
+                }),
+                SizedBox(
+                  height: 220,
+                  child: upcomingGigs.isEmpty
+                      ? const Center(child: Text("No upcoming gigs"))
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: upcomingGigs.length,
+                          itemBuilder: (_, i) =>
+                              _gigCardHorizontal(context, upcomingGigs[i]),
+                        ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 🔹 Nearby
+                _sectionHeader(context, "Nearby Gigs", onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GigPage()),
+                  );
+                }),
+                GridView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.8,
+                  ),
+                  itemCount: nearbyGigs.length,
+                  itemBuilder: (_, i) =>
+                      _gigCardGrid(context, nearbyGigs[i]),
+                ),
+
+                const SizedBox(height: 30),
               ],
             ),
-          ),
-
-          // 🔹 Upcoming Gigs (horizontal, swipe)
-          _sectionHeader("Upcoming Gigs", onSeeAll: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const GigPage()));
-          }),
-          SizedBox(
-            height: 220,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: upcomingGigs.length,
-              itemBuilder: (context, i) {
-                final gig = upcomingGigs[i];
-                return _gigCardHorizontal(context, gig, _formatDate);
-              },
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // 🔹 Nearby Gigs (grid 2-up)
-          _sectionHeader("Nearby Gigs", onSeeAll: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const GigPage()));
-          }),
-          GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.8,
-            ),
-            itemCount: nearbyGigs.length,
-            itemBuilder: (context, i) {
-              final gig = nearbyGigs[i];
-              return _gigCardGrid(context, gig, _formatDate);
-            },
-          ),
-
-          const SizedBox(height: 30),
-        ],
+          );
+        },
       ),
     );
   }
 
-  // 🔹 Section header with "See all"
-  Widget _sectionHeader(String title, {required VoidCallback onSeeAll}) {
+  // ==========================
+  //  UI helpers
+  // ==========================
+
+  Widget _sectionHeader(BuildContext context, String title,
+      {required VoidCallback onSeeAll}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
@@ -175,27 +172,24 @@ class HomePage extends StatelessWidget {
           Text(title, style: AppFonts.textTheme.headlineMedium),
           TextButton(
             onPressed: onSeeAll,
-            child: const Text("See all",
-                style: TextStyle(color: AppColors.primaryGold)),
+            child: const Text(
+              "See all",
+              style: TextStyle(color: AppColors.primaryGold),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // 🔹 Horizontal gig card
-  Widget _gigCardHorizontal(
-    BuildContext context,
-    Gig gig,
-    String Function(DateTime) formatDate,
-  ) {
+  Widget _gigCardHorizontal(BuildContext context, Gig gig) {
+    final hasImage = gig.imageUrl.isNotEmpty;
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
+      ),
       child: Container(
         width: 180,
         margin: const EdgeInsets.only(right: 12),
@@ -216,32 +210,36 @@ class HomePage extends StatelessWidget {
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                gig.imageUrl,
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 120,
-                  color: AppColors.background,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.image_not_supported,
-                      color: AppColors.accentBrown),
-                ),
-              ),
+              child: hasImage
+                  ? Image.network(
+                      gig.imageUrl,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholderImage(120),
+                    )
+                  : _placeholderImage(120),
             ),
             Padding(
               padding: const EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(gig.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    gig.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text("${gig.location} • ${formatDate(gig.date)}",
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.accentBrown)),
+                  Text(
+                    "${gig.location} • ${_shortDate(gig.date)}",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.accentBrown,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -251,19 +249,14 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 🔹 Grid gig card
-  Widget _gigCardGrid(
-    BuildContext context,
-    Gig gig,
-    String Function(DateTime) formatDate,
-  ) {
+  Widget _gigCardGrid(BuildContext context, Gig gig) {
+    final hasImage = gig.imageUrl.isNotEmpty;
+    
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -282,32 +275,36 @@ class HomePage extends StatelessWidget {
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                gig.imageUrl,
-                height: 100,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 100,
-                  color: AppColors.background,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.image_not_supported,
-                      color: AppColors.accentBrown),
-                ),
-              ),
+              child: hasImage
+                  ? Image.network(
+                      gig.imageUrl,
+                      height: 100,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholderImage(100),
+                    )
+                  : _placeholderImage(100),
             ),
             Padding(
               padding: const EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(gig.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    gig.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text("${gig.location} • ${formatDate(gig.date)}",
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.accentBrown)),
+                  Text(
+                    "${gig.location} • ${_shortDate(gig.date)}",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.accentBrown,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -315,5 +312,22 @@ class HomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // simple gray note placeholder to avoid red broken-image bar
+  Widget _placeholderImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: const Icon(Icons.music_note, color: AppColors.accentBrown),
+    );
+  }
+
+  static String _shortDate(DateTime d) {
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return "${d.year}-$mm-$dd";
   }
 }

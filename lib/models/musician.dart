@@ -1,9 +1,10 @@
 class Musician {
   final String id;
   final String name;
-  final String genre; // e.g. Jazz, EDM, HipHop
-  final String type; // e.g. Solo, Duo, Band
+  final String genre;   // primary genre (first from genres[])
+  final String type;    // Solo / Duo / Band (for now default "Solo")
   final String imageUrl;
+  final String bio;
 
   Musician({
     required this.id,
@@ -11,27 +12,31 @@ class Musician {
     required this.genre,
     required this.type,
     required this.imageUrl,
+    required this.bio,
   });
 
-  // ✅ Convert JSON → Musician
   factory Musician.fromJson(Map<String, dynamic> json) {
+    final genres = (json['genres'] as List?)?.cast<String>() ?? const <String>[];
+
     return Musician(
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? '',
-      genre: json['genre'] ?? '',
-      type: json['type'] ?? '',
-      imageUrl: json['imageUrl'] ?? '',
+      genre: genres.isNotEmpty ? genres.first : '',
+      // we don’t have a dedicated column yet, so default to "Solo"
+      type: (json['musician_type'] ?? 'Solo').toString(),
+      imageUrl: (json['avatar_url'] ?? '').toString(),
+      bio: (json['bio'] ?? '').toString(),
     );
   }
 
-  // ✅ Convert Musician → JSON (for sending data to backend)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'genre': genre,
-      'type': type,
-      'imageUrl': imageUrl,
+      'musician_type': type,
+      'avatar_url': imageUrl,
+      'bio': bio,
     };
   }
 }

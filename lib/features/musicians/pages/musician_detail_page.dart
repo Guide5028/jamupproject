@@ -9,6 +9,38 @@ class MusicianDetailPage extends StatelessWidget {
 
   const MusicianDetailPage({super.key, required this.musician});
 
+  Widget _buildHeaderImage(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+
+    if (musician.imageUrl.isEmpty) {
+      return Container(
+        height: width * 0.6,
+        width: double.infinity,
+        color: const Color(0xFFF2F0EA),
+        child: const Center(
+          child: Icon(Icons.person, color: AppColors.accentBrown, size: 40),
+        ),
+      );
+    }
+
+    return Image.network(
+      musician.imageUrl,
+      height: width * 0.6,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: width * 0.6,
+          width: double.infinity,
+          color: const Color(0xFFF2F0EA),
+          child: const Center(
+            child: Icon(Icons.person, color: AppColors.accentBrown, size: 40),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -37,13 +69,9 @@ class MusicianDetailPage extends StatelessWidget {
         children: [
           // 🖼️ Musician Image
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.network(
-              musician.imageUrl,
-              height: width * 0.6,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+            child: _buildHeaderImage(context),
           ),
 
           // 📄 Musician Info
@@ -111,12 +139,14 @@ class MusicianDetailPage extends StatelessWidget {
                     onPressed: () {
                       // TODO: connect booking/messaging
                     },
-                    child: Text("Book Now",
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        )),
+                    child: Text(
+                      "Book Now",
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -135,8 +165,10 @@ class MusicianDetailPage extends StatelessWidget {
         color: AppColors.primaryGold.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(text,
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.darkBrown)),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(fontSize: 12, color: AppColors.darkBrown),
+      ),
     );
   }
 }
