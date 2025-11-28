@@ -21,10 +21,6 @@ class GigDetailPage extends StatelessWidget {
         venueId: "mock-venue-id",       // TODO: replace with gig.venueId
       );
 
-      // ✅ Optional: insert chat + system message
-      // For now you could also move these into BookingRepository if you want
-      // e.g. bookingRepo.startChatForBooking(bookingId);
-
       if (!context.mounted) return;
       Navigator.push(
         context,
@@ -32,7 +28,7 @@ class GigDetailPage extends StatelessWidget {
           builder: (_) => ChatPage(
             name: gig.location,
             avatar: gig.imageUrl,
-            initialStatus: booking['status'], // pass "pending"
+            initialStatus: booking['status'], // "pending"
           ),
         ),
       );
@@ -69,15 +65,18 @@ class GigDetailPage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // 🖼️ Gig Image
+          // 🖼️ Gig Image (with fallback)
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.network(
-              gig.imageUrl,
-              height: width * 0.6,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+            child: gig.imageUrl.isEmpty
+                ? _placeholderImage(width * 0.6)
+                : Image.network(
+                    gig.imageUrl,
+                    height: width * 0.6,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholderImage(width * 0.6),
+                  ),
           ),
 
           // 📄 Gig Info
@@ -108,7 +107,10 @@ class GigDetailPage extends StatelessWidget {
                     const Icon(Icons.calendar_today,
                         size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
-                    Text(gig.date as String, style: AppFonts.textTheme.bodyMedium),
+                    Text(
+                      _formatDate(gig.date),
+                      style: AppFonts.textTheme.bodyMedium,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -157,12 +159,14 @@ class GigDetailPage extends StatelessWidget {
                       ),
                     ),
                     onPressed: () => _bookGig(context),
-                    child: Text("Book Now",
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        )),
+                    child: Text(
+                      "Book Now",
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -170,6 +174,17 @@ class GigDetailPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  // 🔹 Fallback image if URL is empty/broken
+  Widget _placeholderImage(double height) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: const Icon(Icons.music_note, color: AppColors.accentBrown, size: 40),
     );
   }
 
@@ -184,5 +199,12 @@ class GigDetailPage extends StatelessWidget {
       child: Text(text,
           style: GoogleFonts.inter(fontSize: 12, color: AppColors.darkBrown)),
     );
+  }
+
+  // 🔹 Date formatter for Gig.date
+  static String _formatDate(DateTime d) {
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return "${d.year}-$mm-$dd";
   }
 }

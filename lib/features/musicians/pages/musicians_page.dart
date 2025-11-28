@@ -14,11 +14,13 @@ class MusiciansPage extends StatefulWidget {
 
 class _MusiciansPageState extends State<MusiciansPage> {
   final _repo = MusicianRepository();
-  late Future<List<Musician>> _future;
-  String selectedFilter = "";
 
-  // Filters stay the same
-  final List<String> filters = [
+  String selectedFilter = "";
+  bool loading = true;
+  String? error;
+  List<Musician> _all = [];
+
+  final List<String> filters = const [
     "EDM",
     "Jazz",
     "HipHop",
@@ -31,18 +33,71 @@ class _MusiciansPageState extends State<MusiciansPage> {
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _load();
   }
 
-  Future<List<Musician>> _load() => _repo.fetchAll();
+  Future<void> _load() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
 
-  Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    try {
+      final list = await _repo.fetchAll();
+      setState(() {
+        _all = list;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+      });
+    } finally {
+      setState(() {
+        loading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final filtered = selectedFilter.isEmpty
+        ? _all
+        : _all.where((m) {
+            final f = selectedFilter.toLowerCase();
+            return m.genre.toLowerCase() == f ||
+                m.type.toLowerCase() == f;
+          }).toList();
+
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (error != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Failed to load musicians 😵"),
+              const SizedBox(height: 8),
+              Text(error!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _load,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGold,
+                ),
+                child: const Text("Retry"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -51,108 +106,55 @@ class _MusiciansPageState extends State<MusiciansPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.darkBrown),
       ),
-      body: FutureBuilder<List<Musician>>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snap.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Failed to load musicians 😵',
-                        textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
-                    Text('${snap.error}',
-                        style: const TextStyle(color: Colors.red)),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _refresh,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGold,
-                      ),
-                      child: const Text('Retry'),
+      body: Column(
+        children: [
+          // Filter Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: filters.map((f) {
+                final isSelected = selectedFilter == f;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ChoiceChip(
+                    label: Text(f),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryGold.withOpacity(0.8),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : AppColors.darkBrown,
                     ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final all = snap.data ?? <Musician>[];
-
-          // client-side filter by genre OR type
-          final filtered = selectedFilter.isEmpty
-              ? all
-              : all.where((m) {
-                  final f = selectedFilter.toLowerCase();
-                  return m.genre.toLowerCase() == f ||
-                      m.type.toLowerCase() == f;
-                }).toList();
-
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: Column(
-              children: [
-                // 🔹 Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
-                    children: filters.map((f) {
-                      final isSelected = selectedFilter == f;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: ChoiceChip(
-                          label: Text(f),
-                          selected: isSelected,
-                          selectedColor:
-                              AppColors.primaryGold.withOpacity(0.8),
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : AppColors.darkBrown,
-                          ),
-                          onSelected: (_) {
-                            setState(() {
-                              selectedFilter = isSelected ? "" : f;
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
+                    onSelected: (_) {
+                      setState(() {
+                        selectedFilter = isSelected ? "" : f;
+                      });
+                    },
                   ),
-                ),
-
-                // 🔹 Musicians Grid
-                Expanded(
-                  child: filtered.isEmpty
-                      ? const Center(child: Text("No musicians yet"))
-                      : GridView.builder(
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.8,
-                          ),
-                          itemCount: filtered.length,
-                          itemBuilder: (context, i) {
-                            return MusicianCard(musician: filtered[i]);
-                          },
-                        ),
-                ),
-              ],
+                );
+              }).toList(),
             ),
-          );
-        },
+          ),
+
+          // Musicians grid
+          Expanded(
+            child: filtered.isEmpty
+                ? const Center(child: Text("No musicians found"))
+                : GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.8,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) {
+                      return MusicianCard(musician: filtered[i]);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
