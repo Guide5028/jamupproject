@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jamup_app/features/auth/widgets/auth_gate.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_fonts.dart';
@@ -15,11 +16,10 @@ import 'features/auth/pages/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   // Supabase
   await Supabase.initialize(
-    url: 'https://yaxfmxenmotfjvzdyphz.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlheGZteGVubW90Zmp2emR5cGh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3NzUzMjMsImV4cCI6MjA3MzM1MTMyM30.C2NEuCHEx36DcT3L49p3KDTn0NMVfAa1jUKJVc49cro',
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_KEY']!,
     authOptions: const FlutterAuthClientOptions(
       authFlowType: AuthFlowType.pkce,
     ),
