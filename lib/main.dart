@@ -16,7 +16,11 @@ import 'features/auth/pages/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Supabase
+
+  // LOAD .env
+  await dotenv.load(fileName: ".env");
+
+
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_KEY']!,
@@ -27,6 +31,7 @@ Future<void> main() async {
 
   runApp(const JamUpApp());
 }
+
 
 class JamUpApp extends StatelessWidget {
   const JamUpApp({super.key});
