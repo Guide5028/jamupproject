@@ -1,42 +1,44 @@
 class Musician {
   final String id;
   final String name;
-  final String genre;   // primary genre (first from genres[])
-  final String type;    // Solo / Duo / Band (for now default "Solo")
+  final List<String> genres;     // from users.genres (text[])
+  final String venueType;
+  final String role;             // musician/venue
   final String imageUrl;
   final String bio;
 
   Musician({
     required this.id,
     required this.name,
-    required this.genre,
-    required this.type,
+    required this.genres,
+    required this.venueType,
+    required this.role,
     required this.imageUrl,
     required this.bio,
   });
 
-  factory Musician.fromJson(Map<String, dynamic> json) {
-    final genres = (json['genres'] as List?)?.cast<String>() ?? const <String>[];
+  // ✅ new
+  String get primaryGenre => genres.isNotEmpty ? genres.first : "";
 
-    return Musician(
-      id: json['id']?.toString() ?? '',
-      name: json['name'] ?? '',
-      genre: genres.isNotEmpty ? genres.first : '',
-      // we don’t have a dedicated column yet, so default to "Solo"
-      type: (json['musician_type'] ?? 'Solo').toString(),
-      imageUrl: (json['avatar_url'] ?? '').toString(),
-      bio: (json['bio'] ?? '').toString(),
-    );
+  // ✅ backward-compat so old UI code still works
+  String get genre => primaryGenre;
+
+  // ✅ if you don’t have musician_type column, derive from bio like "Solo • EDM"
+  String get type {
+    final b = bio.trim();
+    if (b.contains('•')) return b.split('•').first.trim(); // "Solo", "Duo", "Band"
+    return "Solo";
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'genre': genre,
-      'musician_type': type,
-      'avatar_url': imageUrl,
-      'bio': bio,
-    };
+  factory Musician.fromJson(Map<String, dynamic> json) {
+    return Musician(
+      id: json['id']?.toString() ?? '',
+      name: (json['name'] ?? '').toString(),
+      role: (json['role'] ?? 'musician').toString(),
+      imageUrl: (json['avatar_url'] ?? '').toString(),
+      bio: (json['bio'] ?? '').toString(),
+      venueType: (json['venue_type'] ?? '').toString(),
+      genres: (json['genres'] as List?)?.cast<String>() ?? <String>[],
+    );
   }
 }

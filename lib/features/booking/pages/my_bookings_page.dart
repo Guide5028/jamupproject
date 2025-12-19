@@ -14,7 +14,8 @@ class MyBookingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
-    final musicianId = user?.id ?? 'mock-musician-id'; // TODO: remove mock after auth
+    final musicianId =
+        user?.id ?? 'mock-musician-id'; // TODO: remove mock after auth
 
     return ChangeNotifierProvider(
       create: (_) => BookingController(BookingRepository())
@@ -64,7 +65,8 @@ class MyBookingsPage extends StatelessWidget {
                 final title = (gig['title'] ?? 'Untitled gig') as String;
                 final date = (gig['date'] ?? '') as String;
                 final avatar = (gig['image_url'] ??
-                    'https://via.placeholder.com/150.png?text=$venue') as String;
+                        'https://via.placeholder.com/150.png?text=$venue')
+                    as String;
 
                 // pick icon + color by status
                 IconData icon;
@@ -86,15 +88,22 @@ class MyBookingsPage extends StatelessWidget {
                 return ListTile(
                   leading: Icon(icon, color: color),
                   title: Text(title, style: AppFonts.textTheme.bodyLarge),
-                  subtitle:
-                      Text("$venue • $date", style: AppFonts.textTheme.bodyMedium),
+                  subtitle: Text("$venue • $date",
+                      style: AppFonts.textTheme.bodyMedium),
                   trailing: const Icon(Icons.chat_bubble_outline,
                       color: AppColors.accentBrown),
-                  onTap: () {
+                  onTap: () async {
+                    final repo = BookingRepository();
+                    final bookingId = booking['id'].toString();
+                    final chatId = await repo.getChatIdForBooking(bookingId);
+
+                    if (!context.mounted) return;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatPage(
+                          chatId: chatId,
+                          bookingId: bookingId,
                           name: venue,
                           avatar: avatar,
                           initialStatus: status,

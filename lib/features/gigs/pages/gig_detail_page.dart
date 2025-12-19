@@ -4,7 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
 import '../../messages/pages/chat_page.dart';
-import '../../booking/data/booking_repository.dart'; // 👈 NEW
+import '../../booking/data/booking_repository.dart';
 
 class GigDetailPage extends StatelessWidget {
   final Gig gig;
@@ -13,31 +13,35 @@ class GigDetailPage extends StatelessWidget {
   GigDetailPage({super.key, required this.gig});
 
   Future<void> _bookGig(BuildContext context) async {
-    try {
-      // ✅ Create booking using repo
-      final booking = await bookingRepo.createBooking(
-        gigId: gig.id,
-        musicianId: "mock-musician-id", // TODO: replace with real auth user.id
-        venueId: "mock-venue-id",       // TODO: replace with gig.venueId
-      );
+  try {
+    final result = await bookingRepo.createBookingAndChat(
+      gigId: gig.id,
+      venueId: gig.venueId,
+    );
 
-      if (!context.mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChatPage(
-            name: gig.location,
-            avatar: gig.imageUrl,
-            initialStatus: booking['status'], // "pending"
-          ),
+    final booking = result['booking'] as Map<String, dynamic>;
+    final chatId = result['chatId'] as String;
+
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatPage(
+          chatId: chatId, // ✅ NEW
+          name: gig.location,
+          avatar: gig.imageUrl,
+          initialStatus: booking['status'] ?? 'pending',
         ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Booking failed: $e")),
-      );
-    }
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Booking failed: $e")),
+    );
   }
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -208,3 +212,4 @@ class GigDetailPage extends StatelessWidget {
     return "${d.year}-$mm-$dd";
   }
 }
+

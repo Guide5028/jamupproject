@@ -11,11 +11,19 @@ import '../../booking/data/booking_repository.dart';
 class MyGigsPage extends StatelessWidget {
   const MyGigsPage({super.key});
 
+  String _formatDate(dynamic v) {
+    if (v == null) return '';
+    if (v is DateTime) {
+      return "${v.year}-${v.month.toString().padLeft(2,'0')}-${v.day.toString().padLeft(2,'0')}";
+    }
+    final s = v.toString();
+    return s.length >= 10 ? s.substring(0, 10) : s;
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
 
-    // 🔒 If not logged in, show a simple prompt (no crashes)
     if (user == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -23,29 +31,23 @@ class MyGigsPage extends StatelessWidget {
           title: const Text("My Gigs"),
           backgroundColor: AppColors.background,
           elevation: 0,
-          iconTheme: const IconThemeData(color: AppColors.darkBrown),
         ),
         body: Center(
-          child: Text(
-            "Please sign in to manage your gigs.",
-            style: AppFonts.textTheme.bodyLarge,
-          ),
+          child: Text("Please sign in to manage your gigs.", style: AppFonts.textTheme.bodyLarge),
         ),
       );
     }
 
-    final venueId = user.id; // ✅ your venue's user.id
+    final venueId = user.id;
 
     return ChangeNotifierProvider(
-      create: (_) => BookingController(BookingRepository())
-        ..loadBookingsForVenue(venueId),
+      create: (_) => BookingController(BookingRepository())..loadBookingsForVenue(venueId),
       child: Consumer<BookingController>(
         builder: (context, ctrl, _) {
           if (ctrl.loading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
           }
+
           if (ctrl.error != null) {
             return Scaffold(
               backgroundColor: AppColors.background,
@@ -53,21 +55,8 @@ class MyGigsPage extends StatelessWidget {
                 title: const Text("My Gigs"),
                 backgroundColor: AppColors.background,
                 elevation: 0,
-                iconTheme: const IconThemeData(color: AppColors.darkBrown),
               ),
               body: Center(child: Text("Error: ${ctrl.error}")),
-            );
-          }
-          if (ctrl.bookings.isEmpty) {
-            return Scaffold(
-              backgroundColor: AppColors.background,
-              appBar: AppBar(
-                title: const Text("My Gigs"),
-                backgroundColor: AppColors.background,
-                elevation: 0,
-                iconTheme: const IconThemeData(color: AppColors.darkBrown),
-              ),
-              body: const Center(child: Text("No gigs found")),
             );
           }
 
@@ -79,133 +68,134 @@ class MyGigsPage extends StatelessWidget {
               elevation: 0,
               iconTheme: const IconThemeData(color: AppColors.darkBrown),
             ),
-            body: RefreshIndicator(
-              onRefresh: () async {
-                await context
-                    .read<BookingController>()
-                    .loadBookingsForVenue(venueId);
-              },
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                itemCount: ctrl.bookings.length,
-                itemBuilder: (context, i) {
-                  final booking = ctrl.bookings[i];
-                  final gig = (booking['gigs'] ?? {}) as Map<String, dynamic>;
-                  final musician =
-                      (booking['musicians'] ?? {}) as Map<String, dynamic>;
+            body: ctrl.bookings.isEmpty
+                ? const Center(child: Text("No booking requests yet"))
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      await context.read<BookingController>().loadBookingsForVenue(venueId);
+                    },
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: ctrl.bookings.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) {
+                        final b = ctrl.bookings[i];
+                        final bookingId = b['id'].toString();
+                        final status = (b['status'] ?? 'pending').toString();
 
-                  final musicianName = (musician['name'] ?? "Unknown") as String;
-                  final avatar = (musician['avatar_url'] ??
-                      "https://via.placeholder.com/150") as String;
-                  final status = (booking['status'] ?? "pending") as String;
+                        final gig = (b['gigs'] ?? {}) as Map<String, dynamic>;
+                        final title = (gig['title'] ?? 'Untitled gig').toString();
+                        final date = _formatDate(gig['date']);
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(gig['title'] ?? "Untitled Gig",
-                              style: AppFonts.textTheme.headlineMedium),
-                          const SizedBox(height: 4),
-                          Text(gig['date'] ?? "",
-                              style: AppFonts.textTheme.bodyMedium),
-                          const Divider(height: 20),
+                        // ✅ IMPORTANT: joined musician is "users" (not musicians)
+                        final musician = (b['users'] ?? {}) as Map<String, dynamic>;
+                        final musicianName = (musician['name'] ?? 'Musician').toString();
+                        final musicianAvatar = (musician['avatar_url'] ?? '').toString();
 
-                          // Booking item
-                          ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage: NetworkImage(avatar),
-                            ),
-                            title: Text(musicianName,
-                                style: AppFonts.textTheme.bodyLarge),
-                            subtitle: Text("Status: $status",
-                                style: AppFonts.textTheme.bodyMedium),
-                            trailing: status == "pending"
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.check_circle,
-                                            color: Colors.green),
-                                        onPressed: () async {
-                                          await context
-                                              .read<BookingController>()
-                                              .updateBookingStatus(
-                                                bookingId:
-                                                    booking['id'] as String,
-                                                status: "confirmed",
-                                              );
-                                          if (context.mounted) {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => ChatPage(
-                                                  name: musicianName,
-                                                  avatar: avatar,
-                                                  initialStatus: "confirmed",
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.cancel,
-                                            color: Colors.red),
-                                        onPressed: () async {
-                                          await context
-                                              .read<BookingController>()
-                                              .updateBookingStatus(
-                                                bookingId:
-                                                    booking['id'] as String,
-                                                status: "declined",
-                                              );
-                                          if (context.mounted) {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => ChatPage(
-                                                  name: musicianName,
-                                                  avatar: avatar,
-                                                  initialStatus: "declined",
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    ],
-                                  )
-                                : IconButton(
-                                    icon: const Icon(Icons.chat,
-                                        color: AppColors.accentBrown),
-                                    onPressed: () {
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(color: AppColors.shadowColor, blurRadius: 5, offset: Offset(0, 2)),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: AppFonts.textTheme.headlineMedium),
+                              const SizedBox(height: 4),
+                              Text(date, style: AppFonts.textTheme.bodyMedium),
+                              const Divider(height: 18),
+
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: Colors.grey.shade200,
+                                    backgroundImage: musicianAvatar.isNotEmpty ? NetworkImage(musicianAvatar) : null,
+                                    child: musicianAvatar.isEmpty
+                                        ? const Icon(Icons.person, color: AppColors.accentBrown, size: 18)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(musicianName, style: AppFonts.textTheme.bodyLarge),
+                                        Text("Status: $status", style: AppFonts.textTheme.bodyMedium),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // ✅ Chat button always
+                                  IconButton(
+                                    icon: const Icon(Icons.chat, color: AppColors.accentBrown),
+                                    onPressed: () async {
+                                      final repo = BookingRepository();
+                                      final chatId = await repo.getChatIdForBooking(bookingId);
+                                      if (!context.mounted) return;
+
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) => ChatPage(
+                                            chatId: chatId,
+                                            bookingId: bookingId,
                                             name: musicianName,
-                                            avatar: avatar,
+                                            avatar: musicianAvatar,
                                             initialStatus: status,
                                           ),
                                         ),
                                       );
                                     },
                                   ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              if (status == "pending")
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: () => context.read<BookingController>().respondToBooking(
+                                              bookingId: bookingId,
+                                              status: "confirmed",
+                                            ),
+                                        child: const Text("Confirm"),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: () => context.read<BookingController>().respondToBooking(
+                                              bookingId: bookingId,
+                                              status: "declined",
+                                            ),
+                                        child: const Text("Decline"),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
           );
         },
       ),

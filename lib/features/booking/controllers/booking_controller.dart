@@ -29,28 +29,15 @@ class BookingController extends ChangeNotifier {
     loading = false; notifyListeners();
   }
 
-  Future<void> createBooking({
-    required String gigId,
-    required String musicianId,
-    required String venueId,
-  }) async {
-    loading = true; error = null; notifyListeners();
-    try {
-      await repo.createBooking(gigId: gigId, musicianId: musicianId, venueId: venueId);
-      await loadBookingsForMusician(musicianId);
-    } catch (e) {
-      error = e.toString();
-    }
-    loading = false; notifyListeners();
-  }
-
-  Future<void> updateBookingStatus({
+  // ✅ NEW: venue confirm/decline
+  Future<void> respondToBooking({
     required String bookingId,
-    required String status,
+    required String status, // confirmed / declined
   }) async {
+    error = null; notifyListeners();
     try {
-      await repo.updateBookingStatus(bookingId: bookingId, status: status);
-      final idx = bookings.indexWhere((b) => b['id'] == bookingId);
+      await repo.respondToBooking(bookingId: bookingId, status: status);
+      final idx = bookings.indexWhere((b) => b['id'].toString() == bookingId);
       if (idx != -1) {
         bookings[idx]['status'] = status;
         notifyListeners();

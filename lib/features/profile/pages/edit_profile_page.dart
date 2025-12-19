@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // NEW
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_fonts.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -15,17 +14,18 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final supabase = Supabase.instance.client;
-  final ImagePicker _picker = ImagePicker(); // NEW
+  final ImagePicker _picker = ImagePicker();
 
-  // Profile fields
-  String name = "";
-  String bio = "";
+  final _nameCtrl = TextEditingController();
+  final _bioCtrl = TextEditingController();
+  final _genreCtrl = TextEditingController(); // keep simple for now
+
   String role = "musician";
-  String genre = "";
-  String venueType = "";
-  String avatarUrl = "https://via.placeholder.com/200.png?text=User";
+  String avatarUrl = "";
+  File? _newAvatar;
 
-  File? _newAvatar; // NEW
+  bool loading = true;
+  bool saving = false;
 
   @override
   void initState() {
@@ -33,73 +33,86 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _loadProfile();
   }
 
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _bioCtrl.dispose();
+    _genreCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProfile() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    final meta = user.userMetadata ?? {};
+    setState(() => loading = true);
+
+    final row = await supabase
+        .from('users')
+        .select('name, bio, role, avatar_url, genres')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    final genres = (row?['genres'] as List?)?.cast<String>() ?? <String>[];
+
     setState(() {
-      name = meta['name'] ?? "";
-      bio = meta['bio'] ?? "";
-      role = meta['role'] ?? "musician";
-      genre = meta['genre'] ?? "";
-      venueType = meta['venueType'] ?? "";
-      avatarUrl = meta['avatar_url'] ?? avatarUrl;
+      _nameCtrl.text = (row?['name'] ?? '').toString();
+      _bioCtrl.text = (row?['bio'] ?? '').toString();
+      role = (row?['role'] ?? 'musician').toString();
+      avatarUrl = (row?['avatar_url'] ?? '').toString();
+      _genreCtrl.text = genres.isNotEmpty ? genres.first : '';
+      loading = false;
     });
   }
 
   Future<String?> _uploadAvatar(File file) async {
-    try {
-      final user = supabase.auth.currentUser;
-      if (user == null) return null;
+    final user = supabase.auth.currentUser;
+    if (user == null) return null;
 
-      final fileExt = file.path.split('.').last; //e.g. "jpg" or "png"
-      final fileName = "avatar.$fileExt"; // avatar.jpg or avatar.png
-      final filePath = "${user.id}/$fileName"; // e.g. 1234-uuid/avatar.jpg
+    // ✅ cache-busting filename
+    final ext = file.path.split('.').last.toLowerCase();
+    final fileName = "avatar_${DateTime.now().millisecondsSinceEpoch}.$ext";
+    final path = "${user.id}/$fileName";
 
-      await supabase.storage.from('avatars').upload(
-            filePath,
-            file,
-            fileOptions: const FileOptions(upsert: true), // overwrite old
-          );
+    await supabase.storage.from('avatars').upload(
+          path,
+          file,
+          fileOptions: const FileOptions(upsert: true),
+        );
 
-      // Get public URL
-      final publicUrl = supabase.storage.from('avatars').getPublicUrl(filePath);
-      return publicUrl;
-    } catch (e) {
-      debugPrint("Avatar upload error: $e");
-      return null;
-    }
+    return supabase.storage.from('avatars').getPublicUrl(path);
   }
 
   Future<void> _saveProfile() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => saving = true);
+
     try {
-      String? uploadedUrl = avatarUrl;
+      String finalAvatarUrl = avatarUrl;
+
       if (_newAvatar != null) {
-        uploadedUrl = await _uploadAvatar(_newAvatar!); // NEW
+        final uploaded = await _uploadAvatar(_newAvatar!);
+        if (uploaded != null) finalAvatarUrl = uploaded;
       }
 
-      await supabase.auth.updateUser(
-        UserAttributes(
-          data: {
-            'name': name,
-            'bio': bio,
-            'role': role,
-            'genre': genre,
-            'venueType': venueType,
-            'avatar_url': uploadedUrl,
-          },
-        ),
-      );
+      final name = _nameCtrl.text.trim();
+      final bio = _bioCtrl.text.trim();
+      final genre = _genreCtrl.text.trim();
+
+      // users.genres is text[]
+      final genres =
+          (role == "musician" && genre.isNotEmpty) ? [genre] : <String>[];
 
       await supabase.from('users').update({
         'name': name,
         'bio': bio,
         'role': role,
-        'avatar_url': uploadedUrl,
+        'avatar_url': finalAvatarUrl,
+        'genres': genres,
       }).eq('id', user.id);
 
       if (!mounted) return;
@@ -108,34 +121,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
         const SnackBar(content: Text("Profile updated ✅")),
       );
     } catch (e) {
-      debugPrint("Error updating profile: $e");
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to update: $e")),
       );
+    } finally {
+      if (mounted) setState(() => saving = false);
     }
   }
 
-  // NEW: pick from gallery
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        _newAvatar = File(picked.path);
-      });
-    }
+  Future<void> _pick(ImageSource src) async {
+    final picked = await _picker.pickImage(source: src, imageQuality: 75);
+    if (picked == null) return;
+    setState(() => _newAvatar = File(picked.path));
   }
 
-  // NEW: pick from camera
-  Future<void> _pickFromCamera() async {
-    final picked = await _picker.pickImage(source: ImageSource.camera);
-    if (picked != null) {
-      setState(() {
-        _newAvatar = File(picked.path);
-      });
-    }
-  }
-
-  // NEW: show bottom sheet with options
   void _showImageSourceAction() {
     showModalBottomSheet(
       context: context,
@@ -147,7 +147,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               title: const Text("Choose from Gallery"),
               onTap: () {
                 Navigator.pop(context);
-                _pickImage();
+                _pick(ImageSource.gallery);
               },
             ),
             ListTile(
@@ -155,7 +155,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               title: const Text("Take a Photo"),
               onTap: () {
                 Navigator.pop(context);
-                _pickFromCamera();
+                _pick(ImageSource.camera);
               },
             ),
           ],
@@ -164,15 +164,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
+  ImageProvider? _avatarProvider() {
+    if (_newAvatar != null) return FileImage(_newAvatar!);
+    final u = avatarUrl.trim();
+    if (u.isEmpty) return null;
+    return NetworkImage(u);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final img = _avatarProvider();
+
+    if (loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text("Edit Profile"),
         backgroundColor: AppColors.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.darkBrown),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
@@ -180,15 +192,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
           key: _formKey,
           child: ListView(
             children: [
-              // 🔹 Profile picture
               Center(
                 child: Stack(
                   children: [
                     CircleAvatar(
                       radius: 50,
-                      backgroundImage: _newAvatar != null
-                          ? FileImage(_newAvatar!)
-                          : NetworkImage(avatarUrl) as ImageProvider,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: img,
+                      onBackgroundImageError:
+                          img != null ? (_, __) {} : null, // ✅ key fix
+                      child: img == null
+                          ? const Icon(Icons.person,
+                              size: 36, color: AppColors.accentBrown)
+                          : null,
                     ),
                     Positioned(
                       bottom: 0,
@@ -201,7 +217,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         child: IconButton(
                           icon: const Icon(Icons.camera_alt,
                               size: 20, color: Colors.white),
-                          onPressed: _showImageSourceAction, // NEW
+                          onPressed: _showImageSourceAction,
                         ),
                       ),
                     ),
@@ -209,31 +225,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // 🔹 Name
               TextFormField(
-                initialValue: name,
+                controller: _nameCtrl,
                 decoration: const InputDecoration(
                   labelText: "Name / Venue",
                   border: OutlineInputBorder(),
                 ),
-                onSaved: (val) => name = val ?? "",
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? "Name is required" : null,
               ),
               const SizedBox(height: 16),
-
-              // 🔹 Bio
               TextFormField(
-                initialValue: bio,
+                controller: _bioCtrl,
                 maxLines: 2,
                 decoration: const InputDecoration(
                   labelText: "Bio",
                   border: OutlineInputBorder(),
                 ),
-                onSaved: (val) => bio = val ?? "",
               ),
               const SizedBox(height: 16),
-
-              // 🔹 Role
               DropdownButtonFormField<String>(
                 value: role,
                 items: const [
@@ -247,30 +257,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 onChanged: (val) => setState(() => role = val ?? "musician"),
               ),
               const SizedBox(height: 16),
-
               if (role == "musician")
                 TextFormField(
-                  initialValue: genre,
+                  controller: _genreCtrl,
                   decoration: const InputDecoration(
-                    labelText: "Primary Genre",
+                    labelText: "Primary Genre (e.g. Jazz)",
                     border: OutlineInputBorder(),
                   ),
-                  onSaved: (val) => genre = val ?? "",
                 ),
-
-              if (role == "venue")
-                TextFormField(
-                  initialValue: venueType,
-                  decoration: const InputDecoration(
-                    labelText: "Venue Type (e.g. Club, Bar, Restaurant)",
-                    border: OutlineInputBorder(),
-                  ),
-                  onSaved: (val) => venueType = val ?? "",
-                ),
-
               const SizedBox(height: 24),
-
-              // 🔹 Save Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -278,17 +273,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     backgroundColor: AppColors.primaryGold,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _formKey.currentState!.save();
-                      _saveProfile();
-                    }
-                  },
-                  child: const Text("Save Changes",
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  onPressed: saving ? null : _saveProfile,
+                  child: saving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text("Save Changes",
+                          style: TextStyle(color: Colors.white, fontSize: 16)),
                 ),
               ),
             ],

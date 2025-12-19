@@ -6,6 +6,8 @@ class Gig {
   final String imageUrl;
   final List<String> genres;
 
+  final String venueId;
+
   Gig({
     required this.id,
     required this.title,
@@ -13,6 +15,7 @@ class Gig {
     required this.date,
     required this.imageUrl,
     required this.genres,
+    required this.venueId, 
   });
 
   factory Gig.fromJson(Map<String, dynamic> json) {
@@ -20,11 +23,11 @@ class Gig {
       id: json['id']?.toString() ?? '',
       title: json['title'] ?? '',
       location: json['location'] ?? '',
-      date: json['date'] is String
-          ? DateTime.parse(json['date'])
-          : (json['date'] as DateTime),    // 👈 FIXED
-      imageUrl: json['image_url'] ?? '',
+      date: json['date'] is String ? DateTime.parse(json['date']) : (json['date'] as DateTime),
+      imageUrl: (json['image_url'] ?? '').toString(),
       genres: (json['genres'] as List?)?.cast<String>() ?? [],
+
+      venueId: (json['venue_id'] ?? '').toString(),
     );
   }
 
@@ -36,6 +39,7 @@ class Gig {
       'date': date.toIso8601String(),
       'image_url': imageUrl,
       'genres': genres,
+      'venue_id': venueId,
     };
   }
 }

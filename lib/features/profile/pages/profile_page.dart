@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:jamup_app/features/booking/pages/venue_bookings_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
-import 'setting_page.dart';
-import 'edit_profile_page.dart';
 import '../../auth/pages/login_page.dart';
 import '../../booking/pages/my_bookings_page.dart';
+import '../data/profile_repository.dart';
+import '../widgets/profile_avatar.dart';
+import 'edit_profile_page.dart';
+import 'setting_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -16,37 +19,36 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final supabase = Supabase.instance.client;
+  final repo = ProfileRepository();
 
-  bool _loading = true;
-  Map<String, dynamic>? _userRow; // data from public.users
-  Map<String, dynamic> get _meta => supabase.auth.currentUser?.userMetadata ?? {};
+  bool loading = true;
+  Map<String, dynamic> userRow = {};
+
+  Map<String, dynamic> get meta =>
+      supabase.auth.currentUser?.userMetadata ?? {};
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    load();
   }
 
-  Future<void> _loadUser() async {
+  Future<void> load() async {
     final user = supabase.auth.currentUser;
     if (user == null) {
-      setState(() => _loading = false);
+      setState(() => loading = false);
       return;
     }
 
+    setState(() => loading = true);
     try {
-      final row = await supabase
-          .from('users')
-          .select()
-          .eq('id', user.id)
-          .maybeSingle();
-
+      final row = await repo.getMyProfile();
       setState(() {
-        _userRow = row ?? {};
-        _loading = false;
+        userRow = row;
+        loading = false;
       });
     } catch (e) {
-      setState(() => _loading = false);
+      setState(() => loading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load profile: $e')),
@@ -54,14 +56,14 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _logout() async {
+  Future<void> logout() async {
     try {
       await supabase.auth.signOut();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
-        (route) => false,
+        (_) => false,
       );
     } catch (e) {
       if (!mounted) return;
@@ -75,19 +77,20 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final authUser = supabase.auth.currentUser;
 
-    if (_loading) {
+    if (loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (authUser == null) {
       return const Scaffold(body: Center(child: Text('No user logged in')));
     }
 
-    // Prefer users table; fall back to metadata keys
-    final name = (_userRow?['name'] ?? _meta['name'] ?? 'Unknown') as String;
-    final bio = (_userRow?['bio'] ?? _meta['bio'] ?? '') as String;
-    final role = ((_userRow?['role'] ?? _meta['role'] ?? 'musician') as String).toLowerCase();
-    final avatarUrl = (_userRow?['avatar_url'] ?? _meta['avatar_url'] ??
-        'https://via.placeholder.com/200.png?text=User') as String;
+    final name = (userRow['name'] ?? meta['name'] ?? 'Unknown').toString();
+    final bio = (userRow['bio'] ?? meta['bio'] ?? '').toString();
+    final role = (userRow['role'] ?? meta['role'] ?? 'musician')
+        .toString()
+        .toLowerCase();
+    final avatarUrl =
+        (userRow['avatar_url'] ?? meta['avatar_url'] ?? '').toString();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -98,73 +101,69 @@ class _ProfilePageState extends State<ProfilePage> {
         iconTheme: const IconThemeData(color: AppColors.darkBrown),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadUser, // pull to refresh
+        onRefresh: load,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Header
             Center(
               child: Column(
                 children: [
-                  CircleAvatar(radius: 50, backgroundImage: NetworkImage(avatarUrl)),
+                  ProfileAvatar(url: avatarUrl, radius: 50),
                   const SizedBox(height: 12),
                   Text(name, style: AppFonts.textTheme.headlineLarge),
                   const SizedBox(height: 6),
                   if (bio.isNotEmpty)
                     Text(bio, style: AppFonts.textTheme.bodyMedium),
                   const SizedBox(height: 6),
-                  Text(role.toUpperCase(), style: AppFonts.textTheme.bodyMedium),
+                  Text(role.toUpperCase(),
+                      style: AppFonts.textTheme.bodyMedium),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryGold,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
                     ),
                     onPressed: () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const EditProfilePage()),
+                        MaterialPageRoute(
+                            builder: (_) => const EditProfilePage()),
                       );
-                      // reload after editing
-                      await _loadUser();
+                      await load();
                     },
-                    child: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                    child: const Text('Edit Profile',
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 30),
             const Divider(),
-
             if (role == 'musician')
               _menuItem(Icons.music_note_outlined, 'My Bookings', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyBookingsPage()),
-                );
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const MyBookingsPage()));
               }),
             if (role == 'venue')
-              _menuItem(Icons.event_outlined, 'My Gigs', () {
-                // TODO: navigate to venue gigs page
+              _menuItem(Icons.assignment_outlined, 'Booking Requests', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VenueBookingsPage()),
+                );
               }),
-
-            _menuItem(Icons.favorite_border, 'Favorites', () {
-              // TODO
-            }),
-
+            _menuItem(Icons.favorite_border, 'Favorites', () {}),
             const Divider(),
-
             _menuItem(Icons.settings_outlined, 'Settings', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SettingsPage()));
             }),
             _menuItem(Icons.help_outline, 'Help Center', () {}),
             _menuItem(Icons.privacy_tip_outlined, 'Privacy & Terms', () {}),
-
             const Divider(),
-
-            _menuItem(Icons.logout, 'Logout', _logout),
+            _menuItem(Icons.logout, 'Logout', logout),
           ],
         ),
       ),

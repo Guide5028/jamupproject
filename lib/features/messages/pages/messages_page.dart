@@ -1,34 +1,33 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../data/messages_repository.dart';
 import 'chat_page.dart';
 
-class MessagesPage extends StatelessWidget {
+class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final conversations = [
-      {
-        "name": "Saxophone Pub",
-        "lastMessage": "See you at 9pm!",
-        "time": "8:45 PM",
-        "avatar": "https://via.placeholder.com/150x150.png?text=SP",
-      },
-      {
-        "name": "DJ Nova",
-        "lastMessage": "Can you send me the setlist?",
-        "time": "7:10 PM",
-        "avatar": "https://via.placeholder.com/150x150.png?text=DJ",
-      },
-      {
-        "name": "Luna Jazz Duo",
-        "lastMessage": "Looking forward to the gig 🎷",
-        "time": "Yesterday",
-        "avatar": "https://via.placeholder.com/150x150.png?text=Jazz",
-      },
-    ];
+  State<MessagesPage> createState() => _MessagesPageState();
+}
 
+class _MessagesPageState extends State<MessagesPage> {
+  final repo = MessagesRepository();
+  late Future<List<Map<String, dynamic>>> fut;
+
+  @override
+  void initState() {
+    super.initState();
+    fut = repo.fetchConversations();
+  }
+
+  Future<void> _refresh() async {
+    setState(() => fut = repo.fetchConversations());
+    await fut;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -37,31 +36,74 @@ class MessagesPage extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.darkBrown),
       ),
-      body: ListView.separated(
-        itemCount: conversations.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, i) {
-          final convo = conversations[i];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(convo["avatar"]!),
-            ),
-            title: Text(convo["name"]!, style: AppFonts.textTheme.bodyLarge),
-            subtitle: Text(convo["lastMessage"]!,
-                style: AppFonts.textTheme.bodyMedium),
-            trailing: Text(convo["time"]!,
-                style: AppFonts.textTheme.bodyMedium),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatPage(
-                    name: convo["name"]!,
-                    avatar: convo["avatar"]!,
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: fut,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Failed to load conversations"),
+                  const SizedBox(height: 8),
+                  Text("${snap.error}", style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _refresh,
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGold),
+                    child: const Text("Retry"),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            );
+          }
+
+          final convos = snap.data ?? [];
+          if (convos.isEmpty) {
+            return const Center(child: Text("No messages yet"));
+          }
+
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.separated(
+              itemCount: convos.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, i) {
+                final c = convos[i];
+                final name = c['other_name'] as String;
+                final avatar = (c['other_avatar'] ?? '').toString();
+                final status = c['status'] as String;
+                final chatId = c['chat_id'] as String;
+                final bookingId = c['booking_id'] as String;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                    child: avatar.isEmpty ? const Icon(Icons.person, color: AppColors.accentBrown) : null,
+                  ),
+                  title: Text(name, style: AppFonts.textTheme.bodyLarge),
+                  subtitle: Text("Status: $status", style: AppFonts.textTheme.bodyMedium),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatPage(
+                          chatId: chatId,
+                          bookingId: bookingId,
+                          name: name,
+                          avatar: avatar,
+                          initialStatus: status,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           );
         },
       ),
