@@ -3,6 +3,49 @@ import '../../../models/gig.dart';
 
 class GigRepository {
   final supabase = Supabase.instance.client;
+    /// ✅ Venue: delete gig 
+  Future<void> deleteGig(String gigId) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception("Not logged in");
+
+    // optional guard (RLS is the real protection)
+    final row = await supabase.from('gigs').select('venue_id').eq('id', gigId).single();
+    if ((row['venue_id'] ?? '').toString() != user.id) {
+      throw Exception("You can only delete your own gig");
+    }
+
+    await supabase.from('gigs').delete().eq('id', gigId);
+  }
+
+  /// ✅ Venue: update gig
+  Future<void> updateGig({
+    required String gigId,
+    required String title,
+    required String description,
+    required DateTime date,
+    required String location,
+    required List<String> genres,
+    String imageUrl = '',
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception("Not logged in");
+
+    // optional guard
+    final row = await supabase.from('gigs').select('venue_id').eq('id', gigId).single();
+    if ((row['venue_id'] ?? '').toString() != user.id) {
+      throw Exception("You can only edit your own gig");
+    }
+
+    await supabase.from('gigs').update({
+      'title': title,
+      'description': description,
+      'date': date.toIso8601String(),
+      'location': location,
+      'image_url': imageUrl,
+      'genres': genres,
+      'updated_at': DateTime.now().toIso8601String(), // only if you have this column
+    }).eq('id', gigId);
+  }
 
   Future<List<Gig>> fetchUpcoming({int limit = 10}) async {
     final rows = await supabase

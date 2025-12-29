@@ -9,16 +9,22 @@ class GigController extends ChangeNotifier {
   bool loading = false;
   String? error;
 
-  // List used on the Gigs page (optionally filtered)
+  /// Public gigs (Gigs page)
   List<Gig> gigs = [];
 
-  // Lists for Home page
+  /// Home page lists
   List<Gig> upcoming = [];
   List<Gig> all = [];
 
+  /// Venue-owned gigs
+  List<Gig> myGigs = [];
+
+  /// Genre filter
   String selectedFilter = "";
 
-  /// Load for Gigs page (optionally by genre)
+  /* PUBLIC / MUSICIAN SIDE */
+
+  /// Load gigs for public browsing (optional genre)
   Future<void> loadGigs({String? genre}) async {
     loading = true;
     error = null;
@@ -34,7 +40,7 @@ class GigController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load both lists for Home page without Future.wait typing pain
+  /// Load data for Home page
   Future<void> loadForHome() async {
     loading = true;
     error = null;
@@ -42,7 +48,7 @@ class GigController extends ChangeNotifier {
 
     try {
       upcoming = await repo.fetchUpcoming(limit: 10);
-      all = await repo.fetchAll(); // you can add a location filter later
+      all = await repo.fetchAll();
     } catch (e) {
       error = e.toString();
     }
@@ -51,15 +57,36 @@ class GigController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Apply genre filter on public gigs
   List<Gig> get filtered {
     if (selectedFilter.isEmpty) return gigs;
-    return gigs.where((g) =>
-        g.genres.any((gen) => gen.toLowerCase() == selectedFilter.toLowerCase()))
-      .toList();
+    return gigs
+        .where((g) =>
+            g.genres.any((gen) =>
+                gen.toLowerCase() == selectedFilter.toLowerCase()))
+        .toList();
   }
 
   void toggleFilter(String filter) {
     selectedFilter = (selectedFilter == filter) ? "" : filter;
+    notifyListeners();
+  }
+
+  /* VENUE SIDE */
+
+  /// Load gigs created by the logged-in venue
+  Future<void> loadMyGigs(String venueId) async {
+    loading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      myGigs = await repo.fetchMyGigs(venueId);
+    } catch (e) {
+      error = e.toString();
+    }
+
+    loading = false;
     notifyListeners();
   }
 }

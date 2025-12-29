@@ -9,6 +9,7 @@ import '../data/profile_repository.dart';
 import '../widgets/profile_avatar.dart';
 import 'edit_profile_page.dart';
 import 'setting_page.dart';
+import 'package:jamup_app/features/gigs/pages/venue_my_gigs_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -147,13 +148,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const MyBookingsPage()));
               }),
-            if (role == 'venue')
+            if (role == 'venue') ...[
+              _menuItem(Icons.event_outlined, 'My Gigs', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VenueMyGigsPage()),
+                );
+              }),
               _menuItem(Icons.assignment_outlined, 'Booking Requests', () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const VenueBookingsPage()),
                 );
               }),
+            ],
             _menuItem(Icons.favorite_border, 'Favorites', () {}),
             const Divider(),
             _menuItem(Icons.settings_outlined, 'Settings', () {
