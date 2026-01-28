@@ -69,8 +69,7 @@ class MusicianDetailPage extends StatelessWidget {
         children: [
           // 🖼️ Musician Image
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: _buildHeaderImage(context),
           ),
 
@@ -84,10 +83,11 @@ class MusicianDetailPage extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   children: [
-                    _buildTag(musician.type),
-                    _buildTag(musician.genre),
+                    if (musician.type.isNotEmpty) _buildTag(musician.type),
+                    if (musician.genre.isNotEmpty) _buildTag(musician.genre),
                   ],
                 ),
+
                 const SizedBox(height: 10),
 
                 // Name
@@ -96,11 +96,12 @@ class MusicianDetailPage extends StatelessWidget {
 
                 // Bio
                 Text(
-                  "This is a placeholder bio for ${musician.name}. "
-                  "They are a talented ${musician.type.toLowerCase()} specializing in ${musician.genre}. "
-                  "Perfect for gigs, events, and collaborations.",
+                  musician.bio.isNotEmpty
+                      ? musician.bio
+                      : "${musician.name} hasn’t added a bio yet.",
                   style: AppFonts.textTheme.bodyLarge,
                 ),
+
                 const SizedBox(height: 20),
 
                 // Profile row

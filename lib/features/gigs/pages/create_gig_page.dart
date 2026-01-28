@@ -76,10 +76,12 @@ class _CreateGigPageState extends State<CreateGigPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Gig created ✅")),
       );
+      await Future.delayed(const Duration(milliseconds: 300));
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Create failed: $e")),
+        SnackBar(content: Text("Couldn’t create gig $e")),
       );
     } finally {
       if (mounted) setState(() => saving = false);
@@ -103,29 +105,36 @@ class _CreateGigPageState extends State<CreateGigPage> {
             children: [
               TextFormField(
                 controller: _title,
-                decoration: const InputDecoration(labelText: "Title", border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? "Title required" : null,
+                decoration: const InputDecoration(
+                    labelText: "Title", border: OutlineInputBorder()),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? "Title required" : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _location,
-                decoration: const InputDecoration(labelText: "Location", border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? "Location required" : null,
+                decoration: const InputDecoration(
+                    labelText: "Location", border: OutlineInputBorder()),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? "Location required"
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _desc,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: "Description", border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: "Description", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
-
               OutlinedButton(
                 onPressed: _pickDate,
-                child: Text(_date == null ? "Pick Date" : "Date: ${_date!.toString().substring(0, 10)}",
+                child: Text(
+                    _date == null
+                        ? "Pick Date"
+                        : "Date: ${_date!.toString().substring(0, 10)}",
                     style: AppFonts.textTheme.bodyLarge),
               ),
-
               const SizedBox(height: 12),
               TextFormField(
                 controller: _genres,
@@ -144,22 +153,25 @@ class _CreateGigPageState extends State<CreateGigPage> {
                 ),
               ),
               const SizedBox(height: 16),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGold,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: saving ? null : _save,
                   child: saving
                       ? const SizedBox(
-                          height: 18, width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text("Create", style: TextStyle(color: Colors.white)),
+                      : const Text("Create",
+                          style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],

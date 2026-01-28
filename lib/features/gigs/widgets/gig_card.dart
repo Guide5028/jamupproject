@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_fonts.dart';
 import '../../../models/gig.dart';
 import '../pages/gig_detail_page.dart';
 
@@ -10,15 +11,15 @@ class GigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = gig.imageUrl.isNotEmpty;
+    final hasImage = gig.imageUrl.trim().isNotEmpty;
+    final primaryGenre = gig.genres.isNotEmpty ? gig.genres.first : "";
 
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => GigDetailPage(gig: gig),
-          ),
+          MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
         );
       },
       child: Container(
@@ -33,42 +34,63 @@ class GigCard extends StatelessWidget {
             ),
           ],
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔹 Image (with safe placeholder)
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+            // Image
+            SizedBox(
+              height: 120,
+              width: double.infinity,
               child: hasImage
                   ? Image.network(
                       gig.imageUrl,
-                      height: 100,
-                      width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholderImage(),
+                      errorBuilder: (_, __, ___) => _placeholder(),
                     )
-                  : _placeholderImage(),
+                  : _placeholder(),
             ),
 
-            // 🔹 Info
+            // Content
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (primaryGenre.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGold.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        primaryGenre,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.darkBrown,
+                        ),
+                      ),
+                    ),
+                  if (primaryGenre.isNotEmpty) const SizedBox(height: 8),
+
                   Text(
                     gig.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppFonts.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
+
                   Text(
                     "${gig.location} • ${_shortDate(gig.date)}",
-                    style: const TextStyle(
-                      fontSize: 12,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppFonts.textTheme.bodyMedium?.copyWith(
                       color: AppColors.accentBrown,
                     ),
                   ),
@@ -81,11 +103,8 @@ class GigCard extends StatelessWidget {
     );
   }
 
-  // Simple gray note placeholder
-  Widget _placeholderImage() {
+  Widget _placeholder() {
     return Container(
-      height: 100,
-      width: double.infinity,
       color: Colors.grey.shade200,
       alignment: Alignment.center,
       child: const Icon(Icons.music_note, color: AppColors.accentBrown),

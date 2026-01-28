@@ -8,7 +8,7 @@ import '../../../models/gig.dart';
 import '../controllers/gig_controller.dart';
 import '../data/gig_repository.dart';
 import 'create_gig_page.dart';
-import 'gig_detail_page.dart';
+import 'edit_gig_page.dart'; // ✅ NEW
 
 class VenueMyGigsPage extends StatelessWidget {
   const VenueMyGigsPage({super.key});
@@ -58,19 +58,19 @@ class VenueMyGigsPage extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
                   onPressed: () async {
-                    await Navigator.push(
+                    final changed = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(builder: (_) => const CreateGigPage()),
                     );
-                    // refresh after creating
-                    if (context.mounted) {
+
+                    // ✅ refresh only if something changed
+                    if (context.mounted && changed == true) {
                       await context.read<GigController>().loadMyGigs(venueId);
                     }
                   },
                 ),
               ],
             ),
-
             body: ctrl.loading
                 ? const Center(child: CircularProgressIndicator())
                 : ctrl.error != null
@@ -80,16 +80,25 @@ class VenueMyGigsPage extends StatelessWidget {
                             context.read<GigController>().loadMyGigs(venueId),
                         child: (ctrl.myGigs.isEmpty)
                             ? ListView(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
+                                physics: const AlwaysScrollableScrollPhysics(),
                                 children: const [
                                   SizedBox(height: 120),
-                                  Center(child: Text("No gigs yet. Tap + to create one.")),
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.event_busy,
+                                          size: 48,
+                                          color: AppColors.accentBrown),
+                                      SizedBox(height: 12),
+                                      Text("No gigs yet"),
+                                      SizedBox(height: 6),
+                                      Text("Tap + to create your first gig"),
+                                    ],
+                                  ),
                                 ],
                               )
                             : ListView.separated(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
+                                physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.all(16),
                                 itemCount: ctrl.myGigs.length,
                                 separatorBuilder: (_, __) =>
@@ -99,6 +108,12 @@ class VenueMyGigsPage extends StatelessWidget {
                                   return _GigItem(
                                     gig: gig,
                                     dateText: _shortDate(gig.date),
+                                    onChanged: () async {
+                                      // ✅ refresh list after edit/delete
+                                      await context
+                                          .read<GigController>()
+                                          .loadMyGigs(venueId);
+                                    },
                                   );
                                 },
                               ),
@@ -113,10 +128,12 @@ class VenueMyGigsPage extends StatelessWidget {
 class _GigItem extends StatelessWidget {
   final Gig gig;
   final String dateText;
+  final Future<void> Function() onChanged;
 
   const _GigItem({
     required this.gig,
     required this.dateText,
+    required this.onChanged,
   });
 
   @override
@@ -124,11 +141,17 @@ class _GigItem extends StatelessWidget {
     final hasImage = gig.imageUrl.isNotEmpty;
 
     return InkWell(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        // ✅ Open Edit page instead of GigDetail
+        final changed = await Navigator.push<bool>(
           context,
-          MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
+          MaterialPageRoute(builder: (_) => EditGigPage(gig: gig)),
         );
+
+        // ✅ Refresh only when edit/delete happened
+        if (changed == true) {
+          await onChanged();
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -145,7 +168,8 @@ class _GigItem extends StatelessWidget {
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.horizontal(left: Radius.circular(12)),
               child: hasImage
                   ? Image.network(
                       gig.imageUrl,
@@ -174,7 +198,8 @@ class _GigItem extends StatelessWidget {
                       spacing: 6,
                       children: gig.genres.take(3).map((g) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.primaryGold.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(999),
@@ -188,7 +213,7 @@ class _GigItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: AppColors.accentBrown),
+            const Icon(Icons.edit_outlined, color: AppColors.accentBrown),
             const SizedBox(width: 8),
           ],
         ),

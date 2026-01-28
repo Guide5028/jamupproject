@@ -9,37 +9,6 @@ class MusicianCard extends StatelessWidget {
 
   const MusicianCard({super.key, required this.musician});
 
-  // 🔹 Safe image widget: shows icon if URL missing or fails
-  Widget _buildMusicianImage(String? url, {double height = 110}) {
-    if (url == null || url.isEmpty) {
-      return Container(
-        height: height,
-        width: double.infinity,
-        color: const Color(0xFFF2F0EA),
-        child: const Center(
-          child: Icon(Icons.person, color: AppColors.accentBrown, size: 32),
-        ),
-      );
-    }
-
-    return Image.network(
-      url,
-      height: height,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          height: height,
-          width: double.infinity,
-          color: const Color(0xFFF2F0EA),
-          child: const Center(
-            child: Icon(Icons.person, color: AppColors.accentBrown, size: 32),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -53,49 +22,151 @@ class MusicianCard extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 5,
-              offset: Offset(0, 2),
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: _buildMusicianImage(musician.imageUrl),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    musician.name,
-                    style: AppFonts.textTheme.bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${musician.type} • ${musician.genre}",
-                    style: AppFonts.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.accentBrown,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // 🖼 Background Image
+              _buildImage(musician.imageUrl),
+
+              // 🌑 Gradient overlay
+              Positioned.fill(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black87,
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+
+              // 📄 Content
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Name
+                    Text(
+                      musician.name,
+                      style: AppFonts.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // Type + Genre
+                    Text(
+                      "${musician.type} • ${musician.primaryGenre}",
+                      style: AppFonts.textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Genre tags
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: -8,
+                      children: musician.genres.take(3).map((g) {
+                        return _buildTag(g);
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // CTA
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGold.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          "View Profile",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🔹 Image with fallback
+  Widget _buildImage(String url) {
+    if (url.isEmpty) {
+      return Container(
+        color: const Color(0xFF2A2A2A),
+        child: const Center(
+          child: Icon(Icons.person, size: 48, color: Colors.white54),
+        ),
+      );
+    }
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      height: double.infinity,
+      width: double.infinity,
+      errorBuilder: (_, __, ___) {
+        return Container(
+          color: const Color(0xFF2A2A2A),
+          child: const Center(
+            child: Icon(Icons.person, size: 48, color: Colors.white54),
+          ),
+        );
+      },
+    );
+  }
+
+  // 🔹 Tag pill
+  Widget _buildTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

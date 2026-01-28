@@ -6,6 +6,10 @@ import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
 import '../../gigs/data/gig_repository.dart';
 
+import '../../musicians/data/musician_repository.dart';
+import '../../musicians/widgets/musician_card.dart';
+import '../../../models/musician.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -142,7 +146,7 @@ class _HomePageState extends State<HomePage> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.8,
+                    childAspectRatio: 0.75,
                   ),
                   itemCount: nearbyGigs.length,
                   itemBuilder: (_, i) =>

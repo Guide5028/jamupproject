@@ -57,12 +57,15 @@ class GigDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
+
     final user = Supabase.instance.client.auth.currentUser;
     final role = (user?.userMetadata?['role'] ?? '').toString().toLowerCase();
 
     final isMusician = role == 'musician';
     final isVenue = role == 'venue';
     final isOwner = isVenue && user?.id == gig.venueId;
+
+    final description = gig.description.trim();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -73,6 +76,16 @@ class GigDetailPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: AppColors.darkBrown),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite_border, color: AppColors.darkBrown),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.share_outlined, color: AppColors.darkBrown),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: ListView(
         children: [
@@ -86,8 +99,7 @@ class GigDetailPage extends StatelessWidget {
                     height: width * 0.6,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        _placeholderImage(width * 0.6),
+                    errorBuilder: (_, __, ___) => _placeholderImage(width * 0.6),
                   ),
           ),
 
@@ -113,7 +125,13 @@ class GigDetailPage extends StatelessWidget {
                     const Icon(Icons.location_on,
                         size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
-                    Text(gig.location, style: AppFonts.textTheme.bodyMedium),
+                    Expanded(
+                      child: Text(
+                        gig.location,
+                        style: AppFonts.textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     const Icon(Icons.calendar_today,
                         size: 16, color: AppColors.accentBrown),
@@ -125,12 +143,29 @@ class GigDetailPage extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                // 📝 About
+                // ✅ About (REAL description)
                 Text("About Event", style: AppFonts.textTheme.headlineMedium),
                 const SizedBox(height: 8),
-                Text(
-                  "This is a placeholder description for ${gig.title}.",
-                  style: AppFonts.textTheme.bodyLarge,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppColors.shadowColor,
+                        blurRadius: 5,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    description.isNotEmpty
+                        ? description
+                        : "No description provided yet.",
+                    style: AppFonts.textTheme.bodyLarge,
+                  ),
                 ),
 
                 const SizedBox(height: 24),
@@ -149,8 +184,10 @@ class GigDetailPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Organizer"),
-                        Text("Venue / Host",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          "Venue / Host",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ],
@@ -160,7 +197,7 @@ class GigDetailPage extends StatelessWidget {
 
                 // ✅ ACTION SECTION (professional role-based UI)
 
-// 1) Musician => show Book Now button
+                // 1) Musician => show Book Now button
                 if (isMusician)
                   SizedBox(
                     width: double.infinity,
@@ -184,7 +221,7 @@ class GigDetailPage extends StatelessWidget {
                     ),
                   ),
 
-// 2) Venue owner => show hosting badge (no booking button)
+                // 2) Venue owner => show hosting badge (no booking button)
                 if (isOwner)
                   Container(
                     width: double.infinity,
@@ -225,8 +262,7 @@ class GigDetailPage extends StatelessWidget {
       width: double.infinity,
       color: Colors.grey.shade200,
       alignment: Alignment.center,
-      child:
-          const Icon(Icons.music_note, color: AppColors.accentBrown, size: 40),
+      child: const Icon(Icons.music_note, color: AppColors.accentBrown, size: 40),
     );
   }
 
