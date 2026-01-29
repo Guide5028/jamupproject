@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../models/musician.dart';
-
+import '../../booking/pages/create_booking_page.dart';
 class MusicianDetailPage extends StatelessWidget {
   final Musician musician;
 
@@ -93,13 +93,40 @@ class MusicianDetailPage extends StatelessWidget {
                 // Name
                 Text(musician.name, style: AppFonts.textTheme.headlineLarge),
                 const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on,
+                        size: 16, color: AppColors.accentBrown),
+                    const SizedBox(width: 4),
+                    Text(
+                      musician.location ?? "Unknown location",
+                      style: AppFonts.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.star, size: 16, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      "${musician.rating ?? 0}/5",
+                      style: AppFonts.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
 
-                // Bio
-                Text(
-                  musician.bio.isNotEmpty
-                      ? musician.bio
-                      : "${musician.name} hasn’t added a bio yet.",
-                  style: AppFonts.textTheme.bodyLarge,
+                const SizedBox(height: 16),
+                Text("About", style: AppFonts.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    musician.bio.isNotEmpty
+                        ? musician.bio
+                        : "${musician.name} hasn’t added a bio yet.",
+                    style: AppFonts.textTheme.bodyLarge,
+                  ),
                 ),
 
                 const SizedBox(height: 20),
@@ -125,6 +152,63 @@ class MusicianDetailPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 20),
+                Text("Booking Details",
+                    style: AppFonts.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  children: musician.performanceTypes.map((t) {
+                    return _buildTag(t);
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 8),
+                Text(
+                  "Price: ${musician.priceRange ?? 'Contact for pricing'}",
+                  style: AppFonts.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                Text("Upcoming Shows",
+                    style: AppFonts.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+
+                musician.upcomingGigs.isEmpty
+                    ? const Text("No upcoming shows")
+                    : Column(
+                        children: musician.upcomingGigs.map((g) {
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(g.title),
+                            subtitle: Text("${g.date} • ${g.location}"),
+                          );
+                        }).toList(),
+                      ),
+                const SizedBox(height: 24),
+                Text("Media", style: AppFonts.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: musician.mediaImages.length,
+                  itemBuilder: (_, i) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        musician.mediaImages[i],
+                        fit: BoxFit.cover,
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
 
                 // Book button
                 SizedBox(
@@ -138,8 +222,12 @@ class MusicianDetailPage extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-                      // TODO: connect booking/messaging
-                    },
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text("Please select an upcoming show to book"),
+    ),
+  );
+},
                     child: Text(
                       "Book Now",
                       style: GoogleFonts.inter(

@@ -47,4 +47,25 @@ class BookingController extends ChangeNotifier {
       notifyListeners();
     }
   }
+  Future<void> createBookingForGig({
+    required String gigId,
+    required String venueId,
+  }) async {
+    loading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      await repo.createBookingAndChat(
+        gigId: gigId,
+        venueId: venueId,
+      );
+    } catch (e) {
+      error = e.toString();
+    }
+
+    loading = false;
+    notifyListeners();
+  }
+
 }
