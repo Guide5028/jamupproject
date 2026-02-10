@@ -16,6 +16,8 @@ class GigDetailPage extends StatelessWidget {
 
   Future<void> _bookGig(BuildContext context) async {
     final me = Supabase.instance.client.auth.currentUser;
+    final startTime = gig.date;
+    final endTime = gig.date.add(const Duration(hours: 2));
 
     // 🔒 Safety check (even if UI fails)
     if (me != null && me.id == gig.venueId) {
@@ -29,6 +31,8 @@ class GigDetailPage extends StatelessWidget {
       final result = await bookingRepo.createBookingAndChat(
         gigId: gig.id,
         venueId: gig.venueId,
+        startTime: startTime,
+        endTime: endTime,
       );
 
       final booking = result['booking'] as Map<String, dynamic>;

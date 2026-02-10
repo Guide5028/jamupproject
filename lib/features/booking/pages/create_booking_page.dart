@@ -58,6 +58,8 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
             await _controller.createBookingForGig(
               gigId: widget.gig.id,
               venueId: widget.gig.venueId,
+              startTime: widget.gig.date,
+              endTime: widget.gig.date.add(const Duration(hours: 2)),
             );
             Navigator.pop(context);
           },

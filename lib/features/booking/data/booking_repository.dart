@@ -3,12 +3,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class BookingRepository {
   final supabase = Supabase.instance.client;
 
-  /// ✅ Create booking + chat + system message
-  /// Returns: { booking: {...}, chatId: "..." }
+
   Future<Map<String, dynamic>> createBookingAndChat({
-    required String gigId,
-    required String venueId,
-  }) async {
+  required String gigId,
+  required String venueId,
+  required DateTime startTime,
+  required DateTime endTime,
+}) async {
+
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception("Not logged in");
 
@@ -18,18 +20,36 @@ class BookingRepository {
     if (me['role'] != 'musician') {
       throw Exception("Only musicians can book gigs");
     }
+    // 🔍 check conflict (musician OR venue)
+final conflict = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('status', 'confirmed')
+    .or(
+      'musician_id.eq.${user.id},venue_id.eq.$venueId',
+    )
+    .lt('start_time', endTime.toIso8601String())
+    .gt('end_time', startTime.toIso8601String())
+    .maybeSingle();
+
+if (conflict != null) {
+  throw Exception('⛔ Time slot already booked');
+}
 
     // 1) booking
     final booking = await supabase
-        .from('bookings')
-        .insert({
-          'gig_id': gigId,
-          'musician_id': user.id,
-          'venue_id': venueId,
-          'status': 'pending',
-        })
-        .select()
-        .single();
+    .from('bookings')
+    .insert({
+      'gig_id': gigId,
+      'musician_id': user.id,
+      'venue_id': venueId,
+      'status': 'pending',
+      'start_time': startTime.toIso8601String(),
+      'end_time': endTime.toIso8601String(),
+    })
+    .select()
+    .single();
+
 
     // 2) chat
     final chat = await supabase
@@ -64,6 +84,24 @@ class BookingRepository {
         .single();
     return booking;
   }
+
+  Future<List<Map<String, dynamic>>> getConfirmedSchedule({
+  required String userId,
+  required String role, // 'musician' or 'venue'
+}) async {
+  final query = supabase
+      .from('bookings')
+      .select(
+        'id, start_time, end_time, gigs(title, location)',
+      )
+      .eq('status', 'confirmed');
+
+  final res = role == 'musician'
+      ? await query.eq('musician_id', userId)
+      : await query.eq('venue_id', userId);
+
+  return List<Map<String, dynamic>>.from(res);
+}
 
   Future<void> updateBookingStatus({
     required String bookingId,
@@ -133,4 +171,5 @@ class BookingRepository {
 
     await sendSystemMessage(chatId: chatId, text: text);
   }
+  
 }

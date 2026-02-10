@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jamup_app/features/booking/pages/schedule_page.dart';
 import 'package:jamup_app/features/booking/pages/venue_bookings_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
@@ -143,11 +144,21 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 30),
             const Divider(),
+            _menuItem(Icons.calendar_month_outlined, 'My Schedule', () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SchedulePage()),
+              );
+            }),
+
+            // Musician-specific menu item
             if (role == 'musician')
               _menuItem(Icons.music_note_outlined, 'My Bookings', () {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const MyBookingsPage()));
               }),
+
+            // Venue-specific menu items
             if (role == 'venue') ...[
               _menuItem(Icons.event_outlined, 'My Gigs', () {
                 Navigator.push(
@@ -162,6 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               }),
             ],
+            // non-specific menu items
             _menuItem(Icons.favorite_border, 'Favorites', () {}),
             const Divider(),
             _menuItem(Icons.settings_outlined, 'Settings', () {

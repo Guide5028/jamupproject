@@ -8,25 +8,52 @@ class BookingController extends ChangeNotifier {
   bool loading = false;
   String? error;
   List<Map<String, dynamic>> bookings = [];
+  List<Map<String, dynamic>> schedule = [];
+
+  Future<void> loadSchedule({
+    required String userId,
+    required String role,
+  }) async {
+    loading = true;
+    notifyListeners();
+
+    try {
+      schedule = await repo.getConfirmedSchedule(
+        userId: userId,
+        role: role,
+      );
+    } catch (e) {
+      error = e.toString();
+    }
+
+    loading = false;
+    notifyListeners();
+  }
 
   Future<void> loadBookingsForMusician(String musicianId) async {
-    loading = true; error = null; notifyListeners();
+    loading = true;
+    error = null;
+    notifyListeners();
     try {
       bookings = await repo.getBookingsForMusician(musicianId);
     } catch (e) {
       error = e.toString();
     }
-    loading = false; notifyListeners();
+    loading = false;
+    notifyListeners();
   }
 
   Future<void> loadBookingsForVenue(String venueId) async {
-    loading = true; error = null; notifyListeners();
+    loading = true;
+    error = null;
+    notifyListeners();
     try {
       bookings = await repo.getBookingsForVenue(venueId);
     } catch (e) {
       error = e.toString();
     }
-    loading = false; notifyListeners();
+    loading = false;
+    notifyListeners();
   }
 
   // ✅ NEW: venue confirm/decline
@@ -34,7 +61,8 @@ class BookingController extends ChangeNotifier {
     required String bookingId,
     required String status, // confirmed / declined
   }) async {
-    error = null; notifyListeners();
+    error = null;
+    notifyListeners();
     try {
       await repo.respondToBooking(bookingId: bookingId, status: status);
       final idx = bookings.indexWhere((b) => b['id'].toString() == bookingId);
@@ -47,9 +75,12 @@ class BookingController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
   Future<void> createBookingForGig({
     required String gigId,
     required String venueId,
+    required DateTime startTime,
+    required DateTime endTime,
   }) async {
     loading = true;
     error = null;
@@ -59,6 +90,8 @@ class BookingController extends ChangeNotifier {
       await repo.createBookingAndChat(
         gigId: gigId,
         venueId: venueId,
+        startTime: startTime,
+        endTime: endTime,
       );
     } catch (e) {
       error = e.toString();
@@ -67,5 +100,4 @@ class BookingController extends ChangeNotifier {
     loading = false;
     notifyListeners();
   }
-
 }
