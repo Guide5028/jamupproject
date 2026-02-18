@@ -66,7 +66,7 @@ if (conflict != null) {
     return {'booking': booking, 'chatId': chatId};
   }
 
-  /// ✅ (Optional) simple booking create if some old controller still calls it
+  /// simple booking create 
   Future<Map<String, dynamic>> createBooking({
     required String gigId,
     required String musicianId,
@@ -172,4 +172,19 @@ if (conflict != null) {
     await sendSystemMessage(chatId: chatId, text: text);
   }
   
+  Future<void> cancelBooking(String bookingId) async {
+  await supabase
+      .from('bookings')
+      .update({'status': 'cancelled'})
+      .eq('id', bookingId);
+
+  final chatId = await getChatIdForBooking(bookingId);
+  if (chatId != null) {
+    await sendSystemMessage(
+      chatId: chatId,
+      text: '❌ Booking cancelled',
+    );
+  }
+}
+
 }
