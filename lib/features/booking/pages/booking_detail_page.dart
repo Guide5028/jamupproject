@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jamup_app/features/messages/pages/chat_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../booking/data/booking_repository.dart';
@@ -17,7 +18,9 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   final BookingRepository _repo = BookingRepository();
 
   Map<String, dynamic>? booking;
+
   bool _loading = true;
+  bool _actionLoading = false;
   String? role;
 
   @override
@@ -28,28 +31,24 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   Future<void> _loadBooking() async {
     final user = supabase.auth.currentUser!;
-
-    final me = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+    bool _canReview = false;
+    bool _alreadyReviewed = false;
+    final me =
+        await supabase.from('users').select('role').eq('id', user.id).single();
 
     role = me['role'];
 
-    final data = await supabase
-        .from('bookings')
-        .select('''
-          id,
-          status,
-          start_time,
-          end_time,
-          musician_id,
-          venue_id,
-          gigs(title, location)
-        ''')
-        .eq('id', widget.bookingId)
-        .single();
+    final data = await supabase.from('bookings').select('''
+  id,
+  status,
+  start_time,
+  end_time,
+  musician_id,
+  venue_id,
+  musicians:users!bookings_musician_id_fkey(name, avatar_url),
+  venues:users!bookings_venue_id_fkey(name, avatar_url),
+  gigs(title, location)
+''').eq('id', widget.bookingId).single();
 
     setState(() {
       booking = data;
@@ -82,14 +81,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
           children: [
             Text(
               gig['title'],
-              style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(gig['location']),
             const SizedBox(height: 8),
-            Text(
-                '${_format(start)} - ${_format(end)}'),
+            Text('${_format(start)} - ${_format(end)}'),
             const SizedBox(height: 12),
             _statusBadge(status),
             const Spacer(),
@@ -100,46 +97,117 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () async {
-                        await _repo.respondToBooking(
-                            bookingId: booking!['id'],
-                            status: 'confirmed');
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Confirm'),
+                      onPressed: _actionLoading
+                          ? null
+                          : () => _handleAction(() => _repo.respondToBooking(
+                                bookingId: booking!['id'],
+                                status: 'confirmed',
+                              )),
+                      child: _actionLoading
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Confirm'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () async {
-                        await _repo.respondToBooking(
-                            bookingId: booking!['id'],
-                            status: 'declined');
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red),
-                      child: const Text('Decline'),
+                      onPressed: _actionLoading
+                          ? null
+                          : () => _handleAction(() => _repo.respondToBooking(
+                                bookingId: booking!['id'],
+                                status: 'declined',
+                              )),
+                      child: _actionLoading
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Decline'),
                     ),
                   ),
                 ],
               ),
 
+            ElevatedButton(
+              onPressed: () async {
+                final chatId = await _repo.getChatIdForBooking(booking!['id']);
+
+                if (chatId == null) return;
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatPage(
+                      chatId: chatId,
+                      name: '',
+                      avatar: '',
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Open Chat'),
+            ),
+
             if (status == 'confirmed')
               ElevatedButton(
-                onPressed: () async {
-                  await _repo.cancelBooking(booking!['id']);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red),
-                child: const Text('Cancel Booking'),
+                onPressed: _actionLoading
+                    ? null
+                    : () => _handleAction(
+                          () => _repo.cancelBooking(booking!['id']),
+                        ),
+                child: _actionLoading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Cancel Booking'),
               ),
+  //             if (_canReview && !_alreadyReviewed)
+  // ElevatedButton(
+  //   onPressed: () {
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (_) => ReviewPage(
+  //           bookingId: booking!['id'],
+  //           reviewedUserId: role == 'venue'
+  //               ? booking!['musician_id']
+  //               : booking!['venue_id'],
+  //         ),
+  //       ),
+  //     );
+  //   },
+  //   child: const Text('Leave Review'),
+  // ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleAction(Future<void> Function() action) async {
+    if (_actionLoading) return;
+
+    setState(() => _actionLoading = true);
+
+    try {
+      await action();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Something went wrong')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _actionLoading = false);
+      }
+    }
   }
 
   Widget _statusBadge(String status) {

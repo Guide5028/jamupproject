@@ -1,16 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_fonts.dart';
 import '../widgets/chat_bubble.dart';
 
 class ChatPage extends StatefulWidget {
   final String name;
   final String avatar;
-  final String initialStatus; // pending, confirmed, declined
+  final String initialStatus;
 
-  final String? chatId;     // null = demo mode
-  final String? bookingId;  // optional for later
+  final String? chatId;
+  final String? bookingId;
 
   const ChatPage({
     super.key,
@@ -26,172 +26,322 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final supabase = Supabase.instance.client;
-  final TextEditingController _controller = TextEditingController();
+  final _supabase = Supabase.instance.client;
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
 
   late String bookingStatus;
-  List<Map<String, dynamic>> messages = [];
+  List<Map<String, dynamic>> _messages = [];
+
+  StreamSubscription? _messageSubscription;
+
+  String? get currentUserId => _supabase.auth.currentUser?.id;
+
+  // ==============================
+  // INIT
+  // ==============================
 
   @override
-  void initState() {
-    super.initState();
-    bookingStatus = widget.initialStatus;
+void initState() {
+  super.initState();
+  bookingStatus = widget.initialStatus;
 
-    if (widget.chatId == null) {
-      // ✅ demo mode
-      messages = [
-        {"type": "system", "text": "⏳ Booking request sent (pending)"},
-        {"sender_id": "other", "text": "Hi, are you available this Friday?", "type": "user"},
-        {"sender_id": "me", "text": "Yes! What time is the show?", "type": "user"},
-        {"sender_id": "other", "text": "9pm at Saxophone Pub 🎶", "type": "user"},
-      ];
-    } else {
-      _loadMessages();
-    }
+  if (widget.chatId != null) {
+    _markMessagesAsRead(); // 🔥 mark once when entering
+    _startMessageListener();
+  } else {
+    _loadDemoMessages();
+  }
+}
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadMessages() async {
-    if (widget.chatId == null) return;
+  // ==============================
+  // MESSAGE LOGIC
+  // ==============================
+  Future<void> _markMessagesAsRead() async {
+  final user = _supabase.auth.currentUser;
+  if (user == null || widget.chatId == null) return;
 
-    final res = await supabase
+  await _supabase
+      .from('messages')
+      .update({'read_at': DateTime.now().toIso8601String()})
+      .eq('chat_id', widget.chatId!)
+      .neq('sender_id', user.id)
+      .isFilter('read_at', null);
+}
+  void _loadDemoMessages() {
+    _messages = [
+      {"type": "system", "text": "⏳ Booking request sent"},
+      {
+        "sender_id": "other",
+        "text": "Hi, are you available this Friday?",
+        "type": "user"
+      },
+      {
+        "sender_id": "me",
+        "text": "Yes! What time is the show?",
+        "type": "user"
+      },
+    ];
+  }
+
+  void _startMessageListener() {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    final currentUserId = user.id;
+
+    _messageSubscription = _supabase
         .from('messages')
-        .select()
+        .stream(primaryKey: ['id'])
         .eq('chat_id', widget.chatId!)
-        .order('created_at', ascending: true);
+        .order('created_at')
+        .listen((data) async {
+          final messages = List<Map<String, dynamic>>.from(data);
 
-    setState(() {
-      messages = List<Map<String, dynamic>>.from(res);
-    });
+          setState(() {
+            _messages = messages;
+          });
+
+          // 🔥 only check unread messages
+          final unread = messages.where((msg) =>
+              msg['sender_id'] != currentUserId && msg['read_at'] == null);
+
+          if (unread.isNotEmpty) {
+            await _supabase
+                .from('messages')
+                .update({'read_at': DateTime.now().toIso8601String()})
+                .eq('chat_id', widget.chatId!)
+                .neq('sender_id', currentUserId)
+                .isFilter('read_at', null);
+          }
+
+          _scrollToBottom();
+        });
   }
 
   Future<void> _sendMessage() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+
     _controller.clear();
 
-    // demo mode
     if (widget.chatId == null) {
       setState(() {
-        messages.add({"sender_id": user.id, "text": text, "type": "user"});
+        _messages.add({
+          "sender_id": currentUserId ?? "me",
+          "text": text,
+          "type": "user",
+        });
       });
+      _scrollToBottom();
       return;
     }
 
-    await supabase.from('messages').insert({
+    await _supabase.from('messages').insert({
       'chat_id': widget.chatId,
-      'sender_id': user.id,
+      'booking_id': widget.bookingId,
+      'sender_id': currentUserId,
       'text': text,
       'type': 'user',
+      'created_at': DateTime.now().toIso8601String(),
     });
-
-    _loadMessages();
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  // ==============================
+  // STATUS BANNER
+  // ==============================
+
   Widget _buildStatusBanner() {
-    Color bg;
+    if (widget.bookingId == null) return const SizedBox();
+
+    Color color;
     String text;
 
     switch (bookingStatus) {
       case "confirmed":
-        bg = Colors.green.withOpacity(0.1);
-        text = "✅ Booking confirmed";
+        color = Colors.green;
+        text = "Booking Confirmed";
         break;
       case "declined":
-        bg = Colors.red.withOpacity(0.1);
-        text = "❌ Booking declined";
+        color = Colors.red;
+        text = "Booking Declined";
         break;
       default:
-        bg = Colors.orange.withOpacity(0.1);
-        text = "⏳ Booking pending response from venue";
+        color = Colors.orange;
+        text = "Waiting for confirmation";
     }
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      margin: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 
+  // ==============================
+  // UI
+  // ==============================
+
   @override
   Widget build(BuildContext context) {
-    final currentUserId = supabase.auth.currentUser?.id;
-
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8F6F2),
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.primaryGold,
         elevation: 0,
-        leading: const BackButton(color: AppColors.darkBrown),
+        leading: const BackButton(color: Colors.white),
         title: Row(
           children: [
-            CircleAvatar(backgroundImage: NetworkImage(widget.avatar)),
-            const SizedBox(width: 8),
-            Text(widget.name, style: AppFonts.textTheme.headlineMedium),
+            CircleAvatar(
+              radius: 18,
+              backgroundImage:
+                  widget.avatar.isNotEmpty ? NetworkImage(widget.avatar) : null,
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.name,
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                const Text("Online",
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
           ],
         ),
       ),
       body: Column(
         children: [
           _buildStatusBanner(),
-
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: messages.length,
-              itemBuilder: (_, i) {
-                final msg = messages[i];
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              itemCount: _messages.length,
+              itemBuilder: (_, index) {
+                final msg = _messages[index];
 
                 if (msg['type'] == 'system') {
-                  return Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        msg['text'],
-                        style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                      ),
-                    ),
-                  );
+                  return _buildSystemMessage(msg['text']);
                 }
 
-                final fromMe = msg['sender_id'] == currentUserId || msg['sender_id'] == "me";
-                return ChatBubble(text: msg['text'], fromMe: fromMe);
+                final isMe = msg['sender_id'] == currentUserId ||
+                    msg['sender_id'] == "me";
+
+                final isRead = msg['read_at'] != null;
+
+                return ChatBubble(
+                  message: msg['text'] ?? '',
+                  isMe: isMe,
+                  time: _formatTime(msg['created_at']),
+                  isRead: isRead,
+                );
               },
             ),
           ),
-
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: AppColors.shadowColor, blurRadius: 4, offset: Offset(0, -2))],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(hintText: "Type a message...", border: InputBorder.none),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: AppColors.primaryGold),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
-          ),
+          _buildInputBar(),
         ],
       ),
     );
+  }
+
+  Widget _buildSystemMessage(String text) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: TextField(
+                controller: _controller,
+                decoration: const InputDecoration(
+                  hintText: "Type your message...",
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _sendMessage,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryGold,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.send, color: Colors.white, size: 20),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(String? timestamp) {
+    if (timestamp == null) return '';
+    final date = DateTime.parse(timestamp);
+    return "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 }

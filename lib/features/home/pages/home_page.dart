@@ -85,28 +85,169 @@ class _HomePageState extends State<HomePage> {
             child: ListView(
               children: [
                 // 🔹 Location + bell
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 40, 20, 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFFB8860B), // dark gold
+                        Color(0xFFD4A017), // rich gold
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(32),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 50, 20, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      /// Top row
                       Row(
-                        children: const [
-                          Icon(Icons.location_on,
-                              color: AppColors.primaryGold, size: 20),
-                          SizedBox(width: 6),
-                          Text("Bangkok, TH"),
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.location_on,
+                                  color: Colors.white, size: 20),
+                              SizedBox(width: 6),
+                              Text(
+                                "Bangkok, TH",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.notifications_outlined,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
                         ],
                       ),
-                      IconButton(
+
+                      const SizedBox(height: 20),
+
+                      /// Search bar
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: const TextField(
+                          decoration: InputDecoration(
+                            hintText: "Search gigs or musicians...",
+                            prefixIcon: Icon(Icons.search),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 25),
+
+                      /// Hero Text
+                      const Text(
+                        "Your Stage,\nOne Tap Away 🎸",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      const Text(
+                        "Discover gigs that match your sound.",
+                        style: TextStyle(
+                          color: Colors.white70,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// Explore Button
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF1F5F5B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
                         onPressed: () {},
-                        icon: const Icon(Icons.notifications_outlined,
-                            color: AppColors.darkBrown),
+                        child: const Text("Explore"),
                       ),
                     ],
                   ),
                 ),
 
+                const SizedBox(height: 30),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Explore",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 2.8,
+                    children: [
+                      _categoryCard(
+                        icon: Icons.event_outlined,
+                        title: "Upcoming",
+                        onTap: () {},
+                      ),
+                      _categoryCard(
+                        icon: Icons.location_on_outlined,
+                        title: "Nearby",
+                        onTap: () {},
+                      ),
+                      _categoryCard(
+                        icon: Icons.auto_awesome_outlined,
+                        title: "Recommended",
+                        onTap: () {},
+                      ),
+                      _categoryCard(
+                        icon: Icons.people_outline,
+                        title: "Musicians",
+                        onTap: () {},
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 30),
                 // 🔹 Upcoming
                 _sectionHeader(context, "Upcoming Gigs", onSeeAll: () {
                   Navigator.push(
@@ -115,20 +256,19 @@ class _HomePageState extends State<HomePage> {
                   );
                 }),
                 SizedBox(
-                  height: 220,
+                  height: 300,
                   child: upcomingGigs.isEmpty
                       ? const Center(child: Text("No upcoming gigs"))
                       : ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: upcomingGigs.length,
                           itemBuilder: (_, i) =>
                               _gigCardHorizontal(context, upcomingGigs[i]),
                         ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
 
                 // 🔹 Nearby
                 _sectionHeader(context, "Nearby Gigs", onSeeAll: () {
@@ -141,16 +281,14 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     childAspectRatio: 0.75,
                   ),
                   itemCount: nearbyGigs.length,
-                  itemBuilder: (_, i) =>
-                      _gigCardGrid(context, nearbyGigs[i]),
+                  itemBuilder: (_, i) => _gigCardGrid(context, nearbyGigs[i]),
                 ),
 
                 const SizedBox(height: 30),
@@ -195,59 +333,128 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
       ),
       child: Container(
-        width: 180,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: hasImage
-                  ? Image.network(
-                      gig.imageUrl,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholderImage(120),
-                    )
-                  : _placeholderImage(120),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        width: 250,
+        margin: const EdgeInsets.only(right: 18),
+        child: Card(
+          elevation: 6,
+          shadowColor: Colors.black12,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              /// IMAGE SECTION
+              Stack(
                 children: [
-                  Text(
-                    gig.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                  hasImage
+                      ? Image.network(
+                          gig.imageUrl,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _placeholderImage(160),
+                        )
+                      : _placeholderImage(160),
+
+                  /// Category badge
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        "Music",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${gig.location} • ${_shortDate(gig.date)}",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.accentBrown,
+
+                  /// Favorite button
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      padding: const EdgeInsets.all(6),
+                      child: const Icon(
+                        Icons.favorite_border,
+                        size: 18,
+                        color: AppColors.primaryGold,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              /// CONTENT
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      gig.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 14, color: AppColors.accentBrown),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            gig.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.accentBrown,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _shortDate(gig.date),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.accentBrown,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "฿ 2,500",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppColors.primaryGold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -255,58 +462,133 @@ class _HomePageState extends State<HomePage> {
 
   Widget _gigCardGrid(BuildContext context, Gig gig) {
     final hasImage = gig.imageUrl.isNotEmpty;
-    
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
+      child: Card(
+        elevation: 6,
+        shadowColor: Colors.black12,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: hasImage
-                  ? Image.network(
-                      gig.imageUrl,
-                      height: 100,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholderImage(100),
-                    )
-                  : _placeholderImage(100),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+            /// IMAGE WITH OVERLAY
+            Stack(
+              children: [
+                hasImage
+                    ? Image.network(
+                        gig.imageUrl,
+                        height: 130,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _placeholderImage(130),
+                      )
+                    : _placeholderImage(130),
+
+                /// Gradient overlay (professional touch)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.6),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                /// Title on image
+                Positioned(
+                  left: 12,
+                  bottom: 12,
+                  right: 12,
+                  child: Text(
                     gig.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                ),
+
+                /// Small favorite icon
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.favorite_border,
+                      size: 16,
+                      color: AppColors.primaryGold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            /// CONTENT SECTION
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// Location
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 14, color: AppColors.accentBrown),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          gig.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.accentBrown,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  /// Date
                   Text(
-                    "${gig.location} • ${_shortDate(gig.date)}",
+                    _shortDate(gig.date),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.accentBrown,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  /// Price highlight
+                  const Text(
+                    "฿ 2,500",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGold,
                     ),
                   ),
                 ],
@@ -326,6 +608,52 @@ class _HomePageState extends State<HomePage> {
       color: Colors.grey.shade200,
       alignment: Alignment.center,
       child: const Icon(Icons.music_note, color: AppColors.accentBrown),
+    );
+  }
+
+  Widget _categoryCard({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.primaryGold,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppColors.accentBrown,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

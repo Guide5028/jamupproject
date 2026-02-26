@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jamup_app/config/app_theme.dart';
 import 'package:jamup_app/features/auth/widgets/auth_gate.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,7 +21,6 @@ Future<void> main() async {
   // LOAD .env
   await dotenv.load(fileName: ".env");
 
-
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_KEY']!,
@@ -32,7 +32,6 @@ Future<void> main() async {
   runApp(const JamUpApp());
 }
 
-
 class JamUpApp extends StatelessWidget {
   const JamUpApp({super.key});
 
@@ -41,13 +40,7 @@ class JamUpApp extends StatelessWidget {
     return MaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: AppColors.primaryGold,
-        scaffoldBackgroundColor: AppColors.background,
-        textTheme: AppFonts.textTheme,
-        useMaterial3: true,
-      ),
-      //check if user logged in
+      theme: AppTheme.lightTheme,
       home: const AuthGate(),
     );
   }
@@ -114,9 +107,6 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryGold,
-        unselectedItemColor: AppColors.accentBrown,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [

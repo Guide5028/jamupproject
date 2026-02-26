@@ -4,79 +4,101 @@ class MessagesRepository {
   final supabase = Supabase.instance.client;
 
   Future<List<Map<String, dynamic>>> fetchConversations() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) throw Exception("Not logged in");
+  final user = supabase.auth.currentUser;
+  if (user == null) throw Exception("Not logged in");
 
-    // 1) bookings where I'm musician OR venue
-    final bookingsRes = await supabase
-        .from('bookings')
-        .select('id, status, musician_id, venue_id, created_at')
-        .or('musician_id.eq.${user.id},venue_id.eq.${user.id}')
-        .order('created_at', ascending: false);
+  final userId = user.id;
 
-    final bookings = List<Map<String, dynamic>>.from(bookingsRes);
-    if (bookings.isEmpty) return [];
+  // 1️⃣ Get bookings where I am musician or venue
+  final bookingsRes = await supabase
+      .from('bookings')
+      .select('id, status, musician_id, venue_id')
+      .or('musician_id.eq.$userId,venue_id.eq.$userId');
 
-    final bookingIds = bookings.map((b) => b['id'].toString()).toList();
+  final bookings = List<Map<String, dynamic>>.from(bookingsRes);
+  if (bookings.isEmpty) return [];
 
-    // 2) fetch all chats for these bookings (one query)
-    final chatsRes = await supabase
+  final result = <Map<String, dynamic>>[];
+
+  for (final booking in bookings) {
+    final bookingId = booking['id'].toString();
+// TEMPORARY until we connect real logic
+
+    // 2️⃣ Get chat for this booking
+    final chatRes = await supabase
         .from('chats')
-        .select('id, booking_id, created_at')
-        .inFilter('booking_id', bookingIds);
+        .select('id')
+        .eq('booking_id', bookingId)
+        .maybeSingle();
 
-    final chats = List<Map<String, dynamic>>.from(chatsRes);
+    if (chatRes == null) continue;
 
-    // map booking_id -> chat_id
-    final Map<String, String> bookingToChat = {
-      for (final c in chats)
-        c['booking_id'].toString(): c['id'].toString(),
-    };
+    final chatId = chatRes['id'].toString();
 
-    // 3) collect all "other" user ids (one list)
-    final otherIds = <String>{};
-    for (final b in bookings) {
-      final isMeMusician = b['musician_id'].toString() == user.id;
-      final otherId =
-          isMeMusician ? b['venue_id'].toString() : b['musician_id'].toString();
-      otherIds.add(otherId);
-    }
+    // 3️⃣ Get other user
+    final isMeMusician =
+        booking['musician_id'].toString() == userId;
 
-    // 4) fetch all users for those ids (one query)
-    final usersRes = await supabase
+    final otherId = isMeMusician
+        ? booking['venue_id'].toString()
+        : booking['musician_id'].toString();
+
+    final otherUser = await supabase
         .from('users')
-        .select('id, name, avatar_url')
-        .inFilter('id', otherIds.toList());
+        .select('name, avatar_url')
+        .eq('id', otherId)
+        .single();
 
-    final users = List<Map<String, dynamic>>.from(usersRes);
+    // 4️⃣ Get latest message
+    final lastMessageRes = await supabase
+        .from('messages')
+        .select('text, created_at')
+        .eq('chat_id', chatId)
+        .order('created_at', ascending: false)
+        .limit(1);
 
-    final Map<String, Map<String, dynamic>> userById = {
-      for (final u in users) u['id'].toString(): u,
-    };
+    String lastMessage = '';
+    String lastTime = '';
 
-    // 5) build result
-    final result = <Map<String, dynamic>>[];
-
-    for (final b in bookings) {
-      final bookingId = b['id'].toString();
-      final chatId = bookingToChat[bookingId];
-      if (chatId == null) continue;
-
-      final isMeMusician = b['musician_id'].toString() == user.id;
-      final otherId =
-          isMeMusician ? b['venue_id'].toString() : b['musician_id'].toString();
-
-      final other = userById[otherId];
-
-      result.add({
-        'chat_id': chatId,
-        'booking_id': bookingId,
-        'status': (b['status'] ?? 'pending').toString(),
-        'other_name': (other?['name'] ?? 'Chat').toString(),
-        'other_avatar': (other?['avatar_url'] ?? '').toString(),
-      });
+    if (lastMessageRes.isNotEmpty) {
+      lastMessage = lastMessageRes.first['text'] ?? '';
+      lastTime = lastMessageRes.first['created_at'] ?? '';
     }
 
-    return result;
+    // 5️⃣ Count unread
+    final unreadRes = await supabase
+    .from('messages')
+    .select('id')
+    .eq('chat_id', chatId)
+    .neq('sender_id', userId)
+    .isFilter('read_at', null);
+
+    final unreadCount = unreadRes.length;
+
+    result.add({
+      'chat_id': chatId,
+      'booking_id': bookingId,
+      'status': booking['status'] ?? 'pending',
+      'other_name': otherUser['name'] ?? 'Chat',
+      'other_avatar': otherUser['avatar_url'] ?? '',
+      'last_message': lastMessage,
+      'last_message_time': lastTime,
+      'unread_count': unreadCount,
+    });
   }
+
+  // 6️⃣ Sort by latest message time
+  result.sort((a, b) {
+  final aTime = DateTime.tryParse(a['last_message_time'] ?? '');
+  final bTime = DateTime.tryParse(b['last_message_time'] ?? '');
+
+  if (aTime == null && bTime == null) return 0;
+  if (aTime == null) return 1;
+  if (bTime == null) return -1;
+
+  return bTime.compareTo(aTime);
+});
+
+  return result;
+}
 }

@@ -3,14 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class BookingRepository {
   final supabase = Supabase.instance.client;
 
-
   Future<Map<String, dynamic>> createBookingAndChat({
-  required String gigId,
-  required String venueId,
-  required DateTime startTime,
-  required DateTime endTime,
-}) async {
-
+    required String gigId,
+    required String venueId,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception("Not logged in");
 
@@ -21,35 +19,34 @@ class BookingRepository {
       throw Exception("Only musicians can book gigs");
     }
     // 🔍 check conflict (musician OR venue)
-final conflict = await supabase
-    .from('bookings')
-    .select('id')
-    .eq('status', 'confirmed')
-    .or(
-      'musician_id.eq.${user.id},venue_id.eq.$venueId',
-    )
-    .lt('start_time', endTime.toIso8601String())
-    .gt('end_time', startTime.toIso8601String())
-    .maybeSingle();
+    final conflict = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('status', 'confirmed')
+        .or(
+          'musician_id.eq.${user.id},venue_id.eq.$venueId',
+        )
+        .lt('start_time', endTime.toIso8601String())
+        .gt('end_time', startTime.toIso8601String())
+        .maybeSingle();
 
-if (conflict != null) {
-  throw Exception('⛔ Time slot already booked');
-}
+    if (conflict != null) {
+      throw Exception('⛔ Time slot already booked');
+    }
 
     // 1) booking
     final booking = await supabase
-    .from('bookings')
-    .insert({
-      'gig_id': gigId,
-      'musician_id': user.id,
-      'venue_id': venueId,
-      'status': 'pending',
-      'start_time': startTime.toIso8601String(),
-      'end_time': endTime.toIso8601String(),
-    })
-    .select()
-    .single();
-
+        .from('bookings')
+        .insert({
+          'gig_id': gigId,
+          'musician_id': user.id,
+          'venue_id': venueId,
+          'status': 'pending',
+          'start_time': startTime.toIso8601String(),
+          'end_time': endTime.toIso8601String(),
+        })
+        .select()
+        .single();
 
     // 2) chat
     final chat = await supabase
@@ -66,7 +63,7 @@ if (conflict != null) {
     return {'booking': booking, 'chatId': chatId};
   }
 
-  /// simple booking create 
+  /// simple booking create
   Future<Map<String, dynamic>> createBooking({
     required String gigId,
     required String musicianId,
@@ -86,22 +83,22 @@ if (conflict != null) {
   }
 
   Future<List<Map<String, dynamic>>> getConfirmedSchedule({
-  required String userId,
-  required String role, // 'musician' or 'venue'
-}) async {
-  final query = supabase
-      .from('bookings')
-      .select(
-        'id, start_time, end_time, gigs(title, location)',
-      )
-      .eq('status', 'confirmed');
+    required String userId,
+    required String role, // 'musician' or 'venue'
+  }) async {
+    final query = supabase
+        .from('bookings')
+        .select(
+          'id, start_time, end_time, gigs(title, location)',
+        )
+        .eq('status', 'confirmed');
 
-  final res = role == 'musician'
-      ? await query.eq('musician_id', userId)
-      : await query.eq('venue_id', userId);
+    final res = role == 'musician'
+        ? await query.eq('musician_id', userId)
+        : await query.eq('venue_id', userId);
 
-  return List<Map<String, dynamic>>.from(res);
-}
+    return List<Map<String, dynamic>>.from(res);
+  }
 
   Future<void> updateBookingStatus({
     required String bookingId,
@@ -159,32 +156,99 @@ if (conflict != null) {
 
   Future<void> respondToBooking({
     required String bookingId,
-    required String status, // confirmed / declined
+    required String status,
   }) async {
-    await updateBookingStatus(bookingId: bookingId, status: status);
+    if (status == 'confirmed') {
+      final booking = await supabase
+          .from('bookings')
+          .select('start_time, end_time, musician_id, venue_id')
+          .eq('id', bookingId)
+          .single();
+
+      final start = booking['start_time'];
+      final end = booking['end_time'];
+      final musicianId = booking['musician_id'];
+      final venueId = booking['venue_id'];
+
+      final conflict = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('status', 'confirmed')
+          .neq('id', bookingId)
+          .or(
+            'musician_id.eq.$musicianId,venue_id.eq.$venueId',
+          )
+          .lt('start_time', end)
+          .gt('end_time', start)
+          .maybeSingle();
+
+      if (conflict != null) {
+        throw Exception('⛔ Time conflict detected');
+      }
+    }
+
+    await updateBookingStatus(
+      bookingId: bookingId,
+      status: status,
+    );
 
     final chatId = await getChatIdForBooking(bookingId);
     if (chatId == null) return;
 
-    final text =
-        status == 'confirmed' ? '✅ Booking confirmed' : '❌ Booking declined';
+    final text = status == 'confirmed'
+        ? '✅ Booking confirmed'
+        : status == 'declined'
+            ? '❌ Booking declined'
+            : '❌ Booking cancelled';
 
     await sendSystemMessage(chatId: chatId, text: text);
   }
-  
+
   Future<void> cancelBooking(String bookingId) async {
-  await supabase
-      .from('bookings')
-      .update({'status': 'cancelled'})
-      .eq('id', bookingId);
+    await supabase
+        .from('bookings')
+        .update({'status': 'cancelled'}).eq('id', bookingId);
 
-  final chatId = await getChatIdForBooking(bookingId);
-  if (chatId != null) {
-    await sendSystemMessage(
-      chatId: chatId,
-      text: '❌ Booking cancelled',
-    );
+    final chatId = await getChatIdForBooking(bookingId);
+    if (chatId != null) {
+      await sendSystemMessage(
+        chatId: chatId,
+        text: '❌ Booking cancelled',
+      );
+    }
   }
-}
 
+  Future<void> submitReview({
+    required String bookingId,
+    required String reviewedUserId,
+    required int rating,
+    required String comment,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception("Not logged in");
+
+    await supabase.from('reviews').insert({
+      'booking_id': bookingId,
+      'reviewer_id': user.id,
+      'reviewed_user_id': reviewedUserId,
+      'rating': rating,
+      'comment': comment,
+    });
+  }
+
+  Future<bool> hasReviewed({
+    required String bookingId,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return true;
+
+    final review = await supabase
+        .from('reviews')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .eq('reviewer_id', user.id)
+        .maybeSingle();
+
+    return review != null;
+  }
 }
