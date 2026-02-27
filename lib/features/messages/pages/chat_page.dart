@@ -42,17 +42,17 @@ class _ChatPageState extends State<ChatPage> {
   // ==============================
 
   @override
-void initState() {
-  super.initState();
-  bookingStatus = widget.initialStatus;
+  void initState() {
+    super.initState();
+    bookingStatus = widget.initialStatus;
 
-  if (widget.chatId != null) {
-    _markMessagesAsRead(); // 🔥 mark once when entering
-    _startMessageListener();
-  } else {
-    _loadDemoMessages();
+    if (widget.chatId != null) {
+      _markMessagesAsRead(); // 🔥 mark once when entering
+      _startMessageListener();
+    } else {
+      _loadDemoMessages();
+    }
   }
-}
 
   @override
   void dispose() {
@@ -66,16 +66,17 @@ void initState() {
   // MESSAGE LOGIC
   // ==============================
   Future<void> _markMessagesAsRead() async {
-  final user = _supabase.auth.currentUser;
-  if (user == null || widget.chatId == null) return;
+    final user = _supabase.auth.currentUser;
+    if (user == null || widget.chatId == null) return;
 
-  await _supabase
-      .from('messages')
-      .update({'read_at': DateTime.now().toIso8601String()})
-      .eq('chat_id', widget.chatId!)
-      .neq('sender_id', user.id)
-      .isFilter('read_at', null);
-}
+    await _supabase
+        .from('messages')
+        .update({'read_at': DateTime.now().toIso8601String()})
+        .eq('chat_id', widget.chatId!)
+        .neq('sender_id', user.id)
+        .isFilter('read_at', null);
+  }
+
   void _loadDemoMessages() {
     _messages = [
       {"type": "system", "text": "⏳ Booking request sent"},
@@ -253,6 +254,7 @@ void initState() {
               itemCount: _messages.length,
               itemBuilder: (_, index) {
                 final msg = _messages[index];
+                final isLast = index == _messages.length - 1;
 
                 if (msg['type'] == 'system') {
                   return _buildSystemMessage(msg['text']);
@@ -268,6 +270,8 @@ void initState() {
                   isMe: isMe,
                   time: _formatTime(msg['created_at']),
                   isRead: isRead,
+                  readAt: msg['read_at'],
+                  showSeen: isMe && isLast && isRead,
                 );
               },
             ),

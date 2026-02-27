@@ -88,10 +88,11 @@ class _MessagesPageState extends State<MessagesPage> {
                 final chatId = c['chat_id'] as String;
                 final bookingId = c['booking_id'] as String;
                 final int unread = c['unread_count'] ?? 0;
-
+                final lastMessage = c['last_message'] ?? '';
+                final lastTime = c['last_message_time'] ?? '';
                 return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
@@ -106,7 +107,9 @@ class _MessagesPageState extends State<MessagesPage> {
                               initialStatus: status,
                             ),
                           ),
-                        );
+                        ).then((_) {
+                          _refresh(); // 🔥 refresh conversations when returning
+                        });
                       },
                       child: Container(
                         padding: const EdgeInsets.all(14),
@@ -146,9 +149,9 @@ class _MessagesPageState extends State<MessagesPage> {
                                               : FontWeight.w600,
                                         ),
                                       ),
-                                      const Text(
-                                        "10:45 PM", // temporary
-                                        style: TextStyle(
+                                      Text(
+                                        _formatTime(lastTime),
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey,
                                         ),
@@ -163,7 +166,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          "Looking forward to the gig 🎸",
+                                          lastMessage,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -188,7 +191,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                           ),
                                           child: Center(
                                             child: Text(
-                                              "2",
+                                              unread.toString(),
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 11,
@@ -213,5 +216,23 @@ class _MessagesPageState extends State<MessagesPage> {
         },
       ),
     );
+  }
+
+  String _formatTime(String? timestamp) {
+    if (timestamp == null || timestamp.isEmpty) return '';
+    final date = DateTime.tryParse(timestamp);
+    if (date == null) return '';
+
+    final now = DateTime.now();
+
+    // If today → show time
+    if (now.difference(date).inDays == 0) {
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      return "$hour:$minute";
+    }
+
+    // If not today → show date
+    return "${date.day}/${date.month}";
   }
 }
