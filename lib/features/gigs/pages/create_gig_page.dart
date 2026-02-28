@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+
 import '../data/gig_repository.dart';
 
 class CreateGigPage extends StatefulWidget {
@@ -17,8 +20,11 @@ class _CreateGigPageState extends State<CreateGigPage> {
   final _title = TextEditingController();
   final _desc = TextEditingController();
   final _location = TextEditingController();
-  final _genres = TextEditingController(); // "Jazz, EDM"
+  final _genres = TextEditingController();
   final _imageUrl = TextEditingController();
+
+  double? _latitude;
+  double? _longitude;
 
   DateTime? _date;
   bool saving = false;
@@ -45,48 +51,63 @@ class _CreateGigPageState extends State<CreateGigPage> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_date == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please pick a date")),
-      );
-      return;
-    }
-
-    setState(() => saving = true);
-
-    try {
-      final genres = _genres.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      await repo.createGig(
-        title: _title.text.trim(),
-        description: _desc.text.trim(),
-        date: _date!,
-        location: _location.text.trim(),
-        genres: genres,
-        imageUrl: _imageUrl.text.trim(),
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Gig created ✅")),
-      );
-      await Future.delayed(const Duration(milliseconds: 300));
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Couldn’t create gig $e")),
-      );
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
+  if (_latitude == null || _longitude == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Please select a location from suggestions"),
+      ),
+    );
+    return;
   }
+
+  if (!_formKey.currentState!.validate()) return;
+
+  if (_date == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Please pick a date")),
+    );
+    return;
+  }
+
+  setState(() => saving = true);
+
+  try {
+    final genres = _genres.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    await repo.createGig(
+      title: _title.text.trim(),
+      description: _desc.text.trim(),
+      date: _date!,
+      location: _location.text.trim(),
+      genres: genres,
+      imageUrl: _imageUrl.text.trim(),
+      latitude: _latitude!,   // already from Google Places
+      longitude: _longitude!, // already from Google Places
+    );
+
+    if (!mounted) return;
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Gig created ✅")),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    Navigator.pop(context, true);
+
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Couldn’t create gig $e")),
+    );
+  } finally {
+    if (mounted) setState(() => saving = false);
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -111,13 +132,26 @@ class _CreateGigPageState extends State<CreateGigPage> {
                     (v == null || v.trim().isEmpty) ? "Title required" : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _location,
-                decoration: const InputDecoration(
-                    labelText: "Location", border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? "Location required"
-                    : null,
+              GooglePlaceAutoCompleteTextField(
+                textEditingController: _location,
+                googleAPIKey: "AIzaSyDiiHfZ8hCCWOmzSde6K02wZktjI53wesw",
+                inputDecoration: const InputDecoration(
+                  labelText: "Search Location",
+                  border: OutlineInputBorder(),
+                ),
+                debounceTime: 800,
+                countries: ["th"],
+                isLatLngRequired: true,
+                getPlaceDetailWithLatLng: (prediction) {
+                  _latitude = double.parse(prediction.lat!);
+                  _longitude = double.parse(prediction.lng!);
+                },
+                itemClick: (prediction) {
+                  _location.text = prediction.description!;
+                  _location.selection = TextSelection.fromPosition(
+                    TextPosition(offset: prediction.description!.length),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(

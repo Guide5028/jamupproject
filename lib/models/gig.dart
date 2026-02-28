@@ -7,8 +7,10 @@ class Gig {
   final String imageUrl;
   final List<String> genres;
   final String venueId;
-  final String musicianId; 
-
+  final String musicianId;
+  final double? latitude;
+  final double? longitude;
+  double? distance;
   Gig({
     required this.id,
     required this.title,
@@ -19,6 +21,8 @@ class Gig {
     required this.genres,
     required this.venueId,
     required this.musicianId,
+    required this.latitude,
+    required this.longitude,
   });
 
   factory Gig.fromJson(Map<String, dynamic> json) {
@@ -31,7 +35,9 @@ class Gig {
       imageUrl: json['image_url'] ?? '',
       genres: (json['genres'] as List?)?.cast<String>() ?? [],
       venueId: json['venue_id'] ?? '',
-      musicianId: json['musician_id'] ?? '', // ✅
+      musicianId: json['musician_id'] ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 }

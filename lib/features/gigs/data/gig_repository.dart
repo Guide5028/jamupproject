@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../models/gig.dart';
+import 'dart:math';
 
 class GigRepository {
   final supabase = Supabase.instance.client;
@@ -88,14 +89,30 @@ class GigRepository {
     return rows.map((j) => Gig.fromJson(j)).toList();
   }
 
-  Future<List<Gig>> fetchNearbyMock({int limit = 6}) async {
-    final rows = await supabase
-        .from('gigs')
-        .select('*')
-        .order('created_at', ascending: false)
-        .limit(limit);
+  Future<List<Gig>> fetchNearbyReal({
+    required double latitude,
+    required double longitude,
+    required double radius,
+  }) async {
+    final rows =
+        await supabase.from('gigs').select('*').gte('date', DateTime.now());
 
-    return (rows as List).map((j) => Gig.fromJson(j)).toList();
+    final gigs = (rows as List).map((j) => Gig.fromJson(j)).toList();
+
+    return gigs.where((gig) {
+      if (gig.latitude == null || gig.longitude == null) {
+        return false;
+      }
+
+      final distance = _calculateDistance(
+        latitude,
+        longitude,
+        gig.latitude!,
+        gig.longitude!,
+      );
+
+      return distance <= radius;
+    }).toList();
   }
 
   // ✅ NEW: venue fetch own gigs
@@ -109,13 +126,15 @@ class GigRepository {
     return (rows as List).map((j) => Gig.fromJson(j)).toList();
   }
 
-  // ✅ NEW: venue create gig
+  // venue create gig
   Future<void> createGig({
     required String title,
     required String description,
     required DateTime date,
     required String location,
     required List<String> genres,
+    required double latitude,
+    required double longitude,
     String imageUrl = '',
   }) async {
     final user = supabase.auth.currentUser;
@@ -136,6 +155,33 @@ class GigRepository {
       'venue_id': user.id,
       'image_url': imageUrl,
       'genres': genres,
+      'latitude': latitude,
+      'longitude': longitude,
     });
+  }
+
+  // calculate distance between 2 lat/lng points using Haversine formula
+  double _degToRad(double deg) => deg * pi / 180;
+
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371000; // meters
+
+    final dLat = _degToRad(lat2 - lat1);
+    final dLon = _degToRad(lon2 - lon1);
+
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degToRad(lat1)) *
+            cos(_degToRad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return R * c;
   }
 }

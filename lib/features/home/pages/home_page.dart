@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+
 import '../../../models/gig.dart';
+
 import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
 import '../../gigs/data/gig_repository.dart';
@@ -28,11 +32,39 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<List<List<Gig>>> _load() async {
-    final upcoming = await _repo.fetchUpcoming(limit: 10);
-    // TODO: replace with real nearby (by user location) when ready
-    final nearby = await _repo.fetchNearbyMock(limit: 6);
-    return [upcoming, nearby];
+  final upcoming = await _repo.fetchUpcoming(limit: 10);
+
+  // 🔹 Check service
+  bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    return [upcoming, []];
   }
+
+  // 🔹 Check permission
+  LocationPermission permission = await Geolocator.checkPermission();
+
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    return [upcoming, []];
+  }
+
+  // 🔹 Now safe to get location
+  final position = await Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.high,
+  );
+
+  final nearby = await _repo.fetchNearbyReal(
+    latitude: position.latitude,
+    longitude: position.longitude,
+    radius: 5000,
+  );
+
+  return [upcoming, nearby];
+}
 
   Future<void> _refresh() async {
     setState(() => _loadFuture = _load());
