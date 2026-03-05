@@ -87,7 +87,7 @@ class VenueMyGigsPage extends StatelessWidget {
                                   SizedBox(height: 120),
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
+                                    children: [
                                       Icon(Icons.event_busy,
                                           size: 48,
                                           color: AppColors.accentBrown),

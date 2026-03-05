@@ -11,19 +11,21 @@ class Gig {
   final double? latitude;
   final double? longitude;
   double? distance;
+
   Gig({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.location,
-    required this.date,
-    required this.imageUrl,
-    required this.genres,
-    required this.venueId,
-    required this.musicianId,
-    required this.latitude,
-    required this.longitude,
-  });
+  required this.id,
+  required this.title,
+  required this.description,
+  required this.location,
+  required this.date,
+  required this.imageUrl,
+  required this.genres,
+  required this.venueId,
+  required this.musicianId,
+  required this.latitude,
+  required this.longitude,
+  this.distance,
+});
 
   factory Gig.fromJson(Map<String, dynamic> json) {
     return Gig(
@@ -38,6 +40,7 @@ class Gig {
       musicianId: json['musician_id'] ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      distance: (json['distance'] as num?)?.toDouble(),
     );
   }
 }

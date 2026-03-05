@@ -77,7 +77,6 @@ class GigCard extends StatelessWidget {
                       ),
                     ),
                   if (primaryGenre.isNotEmpty) const SizedBox(height: 8),
-
                   Text(
                     gig.title,
                     maxLines: 2,
@@ -87,7 +86,6 @@ class GigCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-
                   Text(
                     "${gig.location} • ${_shortDate(gig.date)}",
                     maxLines: 1,
@@ -96,6 +94,18 @@ class GigCard extends StatelessWidget {
                       color: AppColors.accentBrown,
                     ),
                   ),
+                  if (gig.distance != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        "${gig.distance!.toStringAsFixed(1)} km away",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryGold,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

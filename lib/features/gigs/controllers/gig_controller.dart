@@ -12,19 +12,26 @@ enum GigSort {
   titleZa,
   locationAz,
   locationZa,
+  distance,
 }
 
 class GigController extends ChangeNotifier {
   final GigRepository repo;
   GigController(this.repo);
-  
+
   GigSort sort = GigSort.dateAsc;
 
-void setSort(GigSort v) {
-  sort = v;
-  notifyListeners();
-}
+  void setSort(GigSort v) {
+    sort = v;
+    notifyListeners();
+  }
 
+  //location for nearby gigs
+  double? userLat;
+  double? userLng;
+  bool isNearbyMode = false;
+  int radiusKm = 5;
+  
   bool loading = false;
   String? error;
 
@@ -62,6 +69,60 @@ void setSort(GigSort v) {
     notifyListeners();
   }
 
+  Future<void> loadNearby({
+    double? lat,
+    double? lng,
+    double radiusKm = 5,
+  }) async {
+    try {
+      loading = true;
+      notifyListeners();
+
+      // ถ้าไม่ได้ส่ง lat/lng มา → ใช้ cache
+      if (lat == null || lng == null) {
+        if (userLat == null || userLng == null) {
+          throw Exception("User location not available");
+        }
+        lat = userLat;
+        lng = userLng;
+      }
+
+      // save cache
+      userLat = lat;
+      userLng = lng;
+
+      final data = await repo.fetchNearbyGigs(
+        userLat: lat!,
+        userLng: lng!,
+        radius: radiusKm,
+      );
+
+      gigs = data;
+      isNearbyMode = true;
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAll() async {
+    loading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      gigs = await repo.fetchAll();
+      isNearbyMode = false;
+    } catch (e) {
+      error = e.toString();
+    }
+
+    loading = false;
+    notifyListeners();
+  }
+
   Future<void> loadForHome() async {
     loading = true;
     error = null;
@@ -79,64 +140,67 @@ void setSort(GigSort v) {
   }
 
   /// ✅ Filter + Search + Sort combined
-List<Gig> get filtered {
-  final q = searchQuery.trim().toLowerCase();
+  List<Gig> get filtered {
+    final q = searchQuery.trim().toLowerCase();
 
-  Iterable<Gig> list = gigs;
+    Iterable<Gig> list = gigs;
 
-  // 1) Genre filter
-  if (selectedFilter.isNotEmpty) {
-    list = list.where((g) => g.genres.any(
-          (gen) => gen.toLowerCase() == selectedFilter.toLowerCase(),
-        ));
+    // 1) Genre filter
+    if (selectedFilter.isNotEmpty) {
+      list = list.where((g) => g.genres.any(
+            (gen) => gen.toLowerCase() == selectedFilter.toLowerCase(),
+          ));
+    }
+
+    // 2) Search filter
+    if (q.isNotEmpty) {
+      list = list.where((g) {
+        final title = g.title.toLowerCase();
+        final loc = g.location.toLowerCase();
+        final genres = g.genres.join(' ').toLowerCase();
+        return title.contains(q) || loc.contains(q) || genres.contains(q);
+      });
+    }
+
+    // 3) Sort
+    final out = list.toList();
+
+    int cmpStr(String a, String b) =>
+        a.toLowerCase().compareTo(b.toLowerCase());
+
+    switch (sort) {
+      case GigSort.dateAsc:
+        out.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case GigSort.dateDesc:
+        out.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case GigSort.newest:
+        out.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case GigSort.oldest:
+        out.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case GigSort.titleAz:
+        out.sort((a, b) => cmpStr(a.title, b.title));
+        break;
+      case GigSort.titleZa:
+        out.sort((a, b) => cmpStr(b.title, a.title));
+        break;
+      case GigSort.locationAz:
+        out.sort((a, b) => cmpStr(a.location, b.location));
+        break;
+      case GigSort.locationZa:
+        out.sort((a, b) => cmpStr(b.location, a.location));
+        break;
+      case GigSort.distance:
+        out.sort(
+            (a, b) => (a.distance ?? 99999).compareTo(b.distance ?? 99999));
+        break;
+    }
+
+    return out;
   }
-
-  // 2) Search filter
-  if (q.isNotEmpty) {
-    list = list.where((g) {
-      final title = g.title.toLowerCase();
-      final loc = g.location.toLowerCase();
-      final genres = g.genres.join(' ').toLowerCase();
-      return title.contains(q) || loc.contains(q) || genres.contains(q);
-    });
-  }
-
-  // 3) Sort
-  final out = list.toList();
-
-  int cmpStr(String a, String b) =>
-      a.toLowerCase().compareTo(b.toLowerCase());
-
-  switch (sort) {
-    case GigSort.dateAsc:
-      out.sort((a, b) => a.date.compareTo(b.date));
-      break;
-    case GigSort.dateDesc:
-      out.sort((a, b) => b.date.compareTo(a.date));
-      break;
-    case GigSort.newest:
-      out.sort((a, b) => b.date.compareTo(a.date));
-      break;
-    case GigSort.oldest:
-      out.sort((a, b) => a.date.compareTo(b.date));
-      break;
-    case GigSort.titleAz:
-      out.sort((a, b) => cmpStr(a.title, b.title));
-      break;
-    case GigSort.titleZa:
-      out.sort((a, b) => cmpStr(b.title, a.title));
-      break;
-    case GigSort.locationAz:
-      out.sort((a, b) => cmpStr(a.location, b.location));
-      break;
-    case GigSort.locationZa:
-      out.sort((a, b) => cmpStr(b.location, a.location));
-      break;
-  }
-
-  return out;
-}
-
 
   void toggleFilter(String filter) {
     selectedFilter = (selectedFilter == filter) ? "" : filter;

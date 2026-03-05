@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+
+import '../../../core/services/location_service.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
@@ -10,9 +11,6 @@ import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
 import '../../gigs/data/gig_repository.dart';
 
-import '../../musicians/data/musician_repository.dart';
-import '../../musicians/widgets/musician_card.dart';
-import '../../../models/musician.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,6 +23,9 @@ class _HomePageState extends State<HomePage> {
   final _repo = GigRepository();
   late Future<List<List<Gig>>> _loadFuture;
 
+  double? _userLat;
+  double? _userLng;
+
   @override
   void initState() {
     super.initState();
@@ -34,34 +35,25 @@ class _HomePageState extends State<HomePage> {
   Future<List<List<Gig>>> _load() async {
   final upcoming = await _repo.fetchUpcoming(limit: 10);
 
-  // 🔹 Check service
-  bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  if (!serviceEnabled) {
-    return [upcoming, []];
+  List<Gig> nearby = [];
+
+  // 🔥 ใช้ Dev-Safe Location Service เท่านั้น
+  final position = await LocationService.getUserLocation();
+
+  if (position != null) {
+    _userLat = position.latitude;
+    _userLng = position.longitude;
+
+    try {
+      nearby = await _repo.fetchNearbyGigs(
+        userLat: _userLat!,
+        userLng: _userLng!,
+        radius: 5000,
+      );
+    } catch (e) {
+      print("Nearby fetch failed: $e");
+    }
   }
-
-  // 🔹 Check permission
-  LocationPermission permission = await Geolocator.checkPermission();
-
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-  }
-
-  if (permission == LocationPermission.denied ||
-      permission == LocationPermission.deniedForever) {
-    return [upcoming, []];
-  }
-
-  // 🔹 Now safe to get location
-  final position = await Geolocator.getCurrentPosition(
-    desiredAccuracy: LocationAccuracy.high,
-  );
-
-  final nearby = await _repo.fetchNearbyReal(
-    latitude: position.latitude,
-    longitude: position.longitude,
-    radius: 5000,
-  );
 
   return [upcoming, nearby];
 }
@@ -178,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         child: const TextField(
                           decoration: InputDecoration(
-                            hintText: "Search gigs or musicians...",
+                            hintText: "Search gigs...",
                             prefixIcon: Icon(Icons.search),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(vertical: 14),

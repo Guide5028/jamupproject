@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../models/gig.dart';
-import 'dart:math';
 
 class GigRepository {
   final supabase = Supabase.instance.client;
@@ -89,32 +88,6 @@ class GigRepository {
     return rows.map((j) => Gig.fromJson(j)).toList();
   }
 
-  Future<List<Gig>> fetchNearbyReal({
-    required double latitude,
-    required double longitude,
-    required double radius,
-  }) async {
-    final rows =
-        await supabase.from('gigs').select('*').gte('date', DateTime.now());
-
-    final gigs = (rows as List).map((j) => Gig.fromJson(j)).toList();
-
-    return gigs.where((gig) {
-      if (gig.latitude == null || gig.longitude == null) {
-        return false;
-      }
-
-      final distance = _calculateDistance(
-        latitude,
-        longitude,
-        gig.latitude!,
-        gig.longitude!,
-      );
-
-      return distance <= radius;
-    }).toList();
-  }
-
   // ✅ NEW: venue fetch own gigs
   Future<List<Gig>> fetchMyGigs(String venueId) async {
     final rows = await supabase
@@ -160,28 +133,21 @@ class GigRepository {
     });
   }
 
-  // calculate distance between 2 lat/lng points using Haversine formula
-  double _degToRad(double deg) => deg * pi / 180;
+  Future<List<Gig>> fetchNearbyGigs({
+  required double userLat,
+  required double userLng,
+  required double radius,
+}) async {
+  final response = await supabase.rpc(
+    'get_nearby_gigs',
+    params: {
+      'user_lat': userLat,
+      'user_lng': userLng,
+      'radius_km': radius,
+    },
+  );
 
-  double _calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const R = 6371000; // meters
-
-    final dLat = _degToRad(lat2 - lat1);
-    final dLon = _degToRad(lon2 - lon1);
-
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degToRad(lat1)) *
-            cos(_degToRad(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-    return R * c;
-  }
+  final rows = List<Map<String, dynamic>>.from(response);
+  return rows.map((j) => Gig.fromJson(j)).toList();
+}
 }

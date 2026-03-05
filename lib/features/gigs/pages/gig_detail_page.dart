@@ -103,7 +103,8 @@ class GigDetailPage extends StatelessWidget {
                     height: width * 0.6,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholderImage(width * 0.6),
+                    errorBuilder: (_, __, ___) =>
+                        _placeholderImage(width * 0.6),
                   ),
           ),
 
@@ -140,15 +141,24 @@ class GigDetailPage extends StatelessWidget {
                     const Icon(Icons.calendar_today,
                         size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
-                    Text(_formatDate(gig.date),
-                        style: AppFonts.textTheme.bodyMedium),
+                    Text(
+                      "${_formatDate(gig.date)} • 2h set",
+                      style: AppFonts.textTheme.bodyMedium,
+                    )
                   ],
                 ),
 
                 const SizedBox(height: 16),
 
                 // ✅ About (REAL description)
-                Text("About Event", style: AppFonts.textTheme.headlineMedium),
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 18),
+                    const SizedBox(width: 6),
+                    Text("About this gig",
+                        style: AppFonts.textTheme.headlineMedium),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
@@ -175,26 +185,36 @@ class GigDetailPage extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // 🎯 Organizer
-                Row(
-                  children: const [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: AppColors.primaryGold,
-                      child:
-                          Icon(Icons.business, color: Colors.white, size: 28),
-                    ),
-                    SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Organizer"),
-                        Text(
-                          "Venue / Host",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ],
+                GestureDetector(
+                  onTap: () {
+                    // TODO open venue profile page
+                  },
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppColors.primaryGold,
+                        child:
+                            Icon(Icons.business, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Organizer",
+                            style: AppFonts.textTheme.bodyMedium,
+                          ),
+                          Text(
+                            gig.location, // temporary venue name
+                            style: AppFonts.textTheme.headlineMedium,
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.arrow_forward_ios, size: 16),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 28),
@@ -266,7 +286,8 @@ class GigDetailPage extends StatelessWidget {
       width: double.infinity,
       color: Colors.grey.shade200,
       alignment: Alignment.center,
-      child: const Icon(Icons.music_note, color: AppColors.accentBrown, size: 40),
+      child:
+          const Icon(Icons.music_note, color: AppColors.accentBrown, size: 40),
     );
   }
 

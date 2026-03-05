@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
@@ -21,6 +22,7 @@ class _GigPageState extends State<GigPage> {
   static const _sortItems = {
     "Date ↑": GigSort.dateAsc,
     "Date ↓": GigSort.dateDesc,
+    "Nearest": GigSort.distance,
     "Title A–Z": GigSort.titleAz,
     "Title Z–A": GigSort.titleZa,
     "Location A–Z": GigSort.locationAz,
@@ -52,36 +54,71 @@ class _GigPageState extends State<GigPage> {
                 children: [
                   // 🔎 Search bar
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      onChanged: ctrl.setSearchQuery,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText: "Search gigs (title, location, genre)",
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: (_searchCtrl.text.trim().isEmpty)
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.close),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  ctrl.clearSearch();
-                                  FocusScope.of(context).unfocus();
-                                },
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              ctrl.loadAll();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: !ctrl.isNearbyMode
+                                    ? AppColors.primaryGold
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(14),
+                                border:
+                                    Border.all(color: AppColors.primaryGold),
                               ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
+                              child: Center(
+                                child: Text(
+                                  "Discover",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: !ctrl.isNearbyMode
+                                        ? Colors.white
+                                        : AppColors.primaryGold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 14),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              _showRadiusSheet(context, ctrl);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: ctrl.isNearbyMode
+                                    ? AppColors.primaryGold
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(14),
+                                border:
+                                    Border.all(color: AppColors.primaryGold),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Nearby (${ctrl.radiusKm.toInt()} km)",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: ctrl.isNearbyMode
+                                        ? Colors.white
+                                        : AppColors.primaryGold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-
                   // 🔹 Filters row
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -137,8 +174,10 @@ class _GigPageState extends State<GigPage> {
                     child: Row(
                       children: [
                         Text(
-                          "${ctrl.filtered.length} results",
-                          style: AppFonts.textTheme.bodyMedium,
+                          "${ctrl.filtered.length} ${ctrl.filtered.length == 1 ? "Gig" : "Gigs"} Found",
+                          style: AppFonts.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const Spacer(),
 
@@ -227,10 +266,33 @@ class _GigPageState extends State<GigPage> {
                             ],
                           );
                         }
-
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              ctrl.isNearbyMode
+                                  ? "Gigs Near You"
+                                  : "Discover Gigs",
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkBrown,
+                              ),
+                            ),
+                          ),
+                        );
                         return RefreshIndicator(
-                          onRefresh: () =>
-                              context.read<GigController>().loadGigs(),
+                          onRefresh: () {
+                            if (ctrl.isNearbyMode && ctrl.userLat != null) {
+                              return ctrl.loadNearby(
+                                lat: ctrl.userLat!,
+                                lng: ctrl.userLng!,
+                              );
+                            } else {
+                              return ctrl.loadAll();
+                            }
+                          },
                           child: GridView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -256,6 +318,37 @@ class _GigPageState extends State<GigPage> {
           );
         },
       ),
+    );
+  }
+
+  void _showRadiusSheet(BuildContext context, GigController ctrl) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [5, 10, 20].map((km) {
+              return ListTile(
+                title: Text("Within $km km"),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final pos = await Geolocator.getCurrentPosition();
+                  await ctrl.loadNearby(
+                    lat: pos.latitude,
+                    lng: pos.longitude,
+                    radiusKm: km.toDouble(),
+                  );
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 }
