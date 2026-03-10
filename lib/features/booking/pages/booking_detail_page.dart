@@ -145,7 +145,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                     builder: (_) => ChatPage(
                       chatId: chatId,
                       name: '',
-                      avatar: '',
+                      avatar: '', otherUserId: 'venue.userId',
                     ),
                   ),
                 );

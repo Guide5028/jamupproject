@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jamup_app/features/booking/pages/schedule_page.dart';
 import 'package:jamup_app/features/booking/pages/venue_bookings_page.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
@@ -59,21 +60,17 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> logout() async {
-    try {
-      await supabase.auth.signOut();
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-        (_) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout failed: $e')),
-      );
-    }
+  try {
+    await OneSignal.logout();
+    await supabase.auth.signOut();
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Logout failed: $e')),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {

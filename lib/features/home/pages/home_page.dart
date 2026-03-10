@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:jamup_app/features/musicians/pages/musicians_page.dart';
+import 'package:jamup_app/features/notifications/notifications_page.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../core/services/location_service.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -11,7 +16,6 @@ import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
 import '../../gigs/data/gig_repository.dart';
 
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,42 +25,58 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _repo = GigRepository();
-  late Future<List<List<Gig>>> _loadFuture;
+  final TextEditingController _searchCtrl = TextEditingController();
 
+  late Future<List<List<Gig>>> _loadFuture;
+  late final user;
+  late final String? userId;
+  late Future<String> _cityFuture;
   double? _userLat;
   double? _userLng;
 
   @override
   void initState() {
     super.initState();
-    _loadFuture = _load(); // run once
+
+    user = Supabase.instance.client.auth.currentUser;
+    userId = user?.id;
+
+    _loadFuture = _load();
+    _cityFuture = LocationService.getCityName();
   }
 
   Future<List<List<Gig>>> _load() async {
-  final upcoming = await _repo.fetchUpcoming(limit: 10);
+    final position = await LocationService.getUserLocation();
 
-  List<Gig> nearby = [];
-
-  // 🔥 ใช้ Dev-Safe Location Service เท่านั้น
-  final position = await LocationService.getUserLocation();
-
-  if (position != null) {
-    _userLat = position.latitude;
-    _userLng = position.longitude;
-
-    try {
-      nearby = await _repo.fetchNearbyGigs(
-        userLat: _userLat!,
-        userLng: _userLng!,
-        radius: 5000,
-      );
-    } catch (e) {
-      print("Nearby fetch failed: $e");
+    if (position != null) {
+      _userLat = position.latitude;
+      _userLng = position.longitude;
     }
-  }
 
-  return [upcoming, nearby];
-}
+    final userGenre = user?.userMetadata?['genre'];
+
+    final results = await Future.wait([
+      _repo.fetchUpcoming(limit: 10),
+      if (_userLat != null)
+        _repo.fetchNearbyGigs(
+          userLat: _userLat!,
+          userLng: _userLng!,
+          radius: 5000,
+        )
+      else
+        Future.value(<Gig>[]),
+      if (userGenre != null && userGenre.toString().isNotEmpty)
+        _repo.fetchAll(genre: userGenre)
+      else
+        Future.value(<Gig>[]),
+    ]);
+
+    return [
+      results[0] as List<Gig>, // upcoming
+      results[1] as List<Gig>, // nearby
+      results[2] as List<Gig>, // recommended based on user's genre preference
+    ];
+  }
 
   Future<void> _refresh() async {
     setState(() => _loadFuture = _load());
@@ -100,13 +120,17 @@ class _HomePageState extends State<HomePage> {
           }
 
           // Fallback empty lists if something is null
-          final data = snap.data ?? [<Gig>[], <Gig>[]];
+          final data = snap.data ?? [<Gig>[], <Gig>[], <Gig>[]];
+
           final upcomingGigs = data[0];
           final nearbyGigs = data[1];
+          final recommendedGigs = data[2];
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.zero,
               children: [
                 // 🔹 Location + bell
                 Container(
@@ -132,31 +156,86 @@ class _HomePageState extends State<HomePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
-                            children: const [
+                            children: [
                               Icon(Icons.location_on,
                                   color: Colors.white, size: 20),
                               SizedBox(width: 6),
-                              Text(
-                                "Bangkok, TH",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              FutureBuilder<String>(
+                                future: _cityFuture,
+                                builder: (_, snapshot) {
+                                  return Text(
+                                    snapshot.data ?? "Loading location...",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  );
+                                },
+                              )
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.notifications_outlined,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
+                          Stack(
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.notifications_outlined,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const NotificationsPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              Positioned(
+                                  right: 4,
+                                  top: 4,
+                                  child:
+                                      StreamBuilder<List<Map<String, dynamic>>>(
+                                    stream: Supabase.instance.client
+                                        .from('notifications')
+                                        .stream(primaryKey: ['id']).map(
+                                            (data) => data
+                                                .where((n) =>
+                                                    n['user_id'] == userId &&
+                                                    n['is_read'] == false)
+                                                .toList()),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData)
+                                        return const SizedBox();
+
+                                      final unread = snapshot.data!.length;
+
+                                      if (unread == 0) return const SizedBox();
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(5),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 18,
+                                          minHeight: 18,
+                                        ),
+                                        child: Text(
+                                          unread > 9 ? '9+' : '$unread',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      );
+                                    },
+                                  )),
+                            ],
+                          )
                         ],
                       ),
 
@@ -167,9 +246,28 @@ class _HomePageState extends State<HomePage> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            )
+                          ],
                         ),
-                        child: const TextField(
-                          decoration: InputDecoration(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onSubmitted: (value) {
+                            if (value.trim().isEmpty) return;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    GigPage(searchQuery: value.trim()),
+                              ),
+                            );
+                          },
+                          decoration: const InputDecoration(
                             hintText: "Search gigs...",
                             prefixIcon: Icon(Icons.search),
                             border: InputBorder.none,
@@ -210,7 +308,12 @@ class _HomePageState extends State<HomePage> {
                             borderRadius: BorderRadius.circular(30),
                           ),
                         ),
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const GigPage()),
+                          );
+                        },
                         child: const Text("Explore"),
                       ),
                     ],
@@ -250,28 +353,71 @@ class _HomePageState extends State<HomePage> {
                       _categoryCard(
                         icon: Icons.event_outlined,
                         title: "Upcoming",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const GigPage()),
+                          );
+                        },
                       ),
                       _categoryCard(
                         icon: Icons.location_on_outlined,
                         title: "Nearby",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const GigPage()),
+                          );
+                        },
                       ),
                       _categoryCard(
                         icon: Icons.auto_awesome_outlined,
                         title: "Recommended",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const GigPage()),
+                          );
+                        },
                       ),
                       _categoryCard(
                         icon: Icons.people_outline,
                         title: "Musicians",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const MusiciansPage()),
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 30),
+
+                // 🔹 Recommended for users
+                _sectionHeader(context, "Recommended for You", onSeeAll: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GigPage()),
+                  );
+                }),
+
+                SizedBox(
+                  height: 300,
+                  child: recommendedGigs.isEmpty
+                      ? const Center(child: Text("No recommendations yet"))
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: recommendedGigs.length,
+                          itemBuilder: (_, i) =>
+                              _gigCardHorizontal(context, recommendedGigs[i]),
+                        ),
+                ),
+                
                 // 🔹 Upcoming
                 _sectionHeader(context, "Upcoming Gigs", onSeeAll: () {
                   Navigator.push(
@@ -301,19 +447,28 @@ class _HomePageState extends State<HomePage> {
                     MaterialPageRoute(builder: (_) => const GigPage()),
                   );
                 }),
-                GridView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemCount: nearbyGigs.length,
-                  itemBuilder: (_, i) => _gigCardGrid(context, nearbyGigs[i]),
-                ),
+                nearbyGigs.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                          child: Text("No nearby gigs yet"),
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.75,
+                        ),
+                        itemCount: nearbyGigs.length,
+                        itemBuilder: (_, i) =>
+                            _gigCardGrid(context, nearbyGigs[i]),
+                      ),
 
                 const SizedBox(height: 30),
               ],
@@ -351,7 +506,8 @@ class _HomePageState extends State<HomePage> {
   Widget _gigCardHorizontal(BuildContext context, Gig gig) {
     final hasImage = gig.imageUrl.isNotEmpty;
 
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
@@ -373,13 +529,17 @@ class _HomePageState extends State<HomePage> {
               Stack(
                 children: [
                   hasImage
-                      ? Image.network(
-                          gig.imageUrl,
+                      ? Image.network(gig.imageUrl,
                           height: 160,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _placeholderImage(160),
-                        )
+                          loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }, errorBuilder: (_, __, ___) {
+                          return _placeholderImage(160);
+                        })
                       : _placeholderImage(160),
 
                   /// Category badge
@@ -393,9 +553,9 @@ class _HomePageState extends State<HomePage> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        "Music",
-                        style: TextStyle(
+                      child: Text(
+                        gig.genres.isNotEmpty ? gig.genres.first : "Music",
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -467,7 +627,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      "฿ 2,500",
+                      "฿ ${gig.price.toStringAsFixed(0)}",
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -487,7 +647,8 @@ class _HomePageState extends State<HomePage> {
   Widget _gigCardGrid(BuildContext context, Gig gig) {
     final hasImage = gig.imageUrl.isNotEmpty;
 
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
@@ -511,7 +672,11 @@ class _HomePageState extends State<HomePage> {
                         height: 130,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholderImage(130),
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        },
                       )
                     : _placeholderImage(130),
 
@@ -608,8 +773,8 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 8),
 
                   /// Price highlight
-                  const Text(
-                    "฿ 2,500",
+                  Text(
+                    "฿ ${gig.price.toStringAsFixed(0)}",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.primaryGold,
@@ -640,45 +805,47 @@ class _HomePageState extends State<HomePage> {
     required String title,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryGold.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: AppColors.primaryGold,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+    return Material(
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGold.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: AppColors.primaryGold,
+                      size: 20,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: AppColors.accentBrown,
+                  ),
+                ],
               ),
-              const Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: AppColors.accentBrown,
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
   static String _shortDate(DateTime d) {

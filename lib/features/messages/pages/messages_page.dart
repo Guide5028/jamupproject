@@ -106,109 +106,134 @@ class _MessagesPageState extends State<MessagesPage> {
                               bookingId: bookingId,
                               name: name,
                               avatar: avatar,
-                              initialStatus: status,
+                              initialStatus: status, otherUserId: '',
                             ),
                           ),
                         ).then((_) {
                           _refresh(); // 🔥 refresh conversations when returning
                         });
                       },
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: const BoxDecoration(
-                          color: Colors.transparent,
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 28,
-                              backgroundImage: avatar.isNotEmpty
-                                  ? NetworkImage(avatar)
-                                  : null,
-                              backgroundColor:
-                                  AppColors.primaryGold.withOpacity(0.15),
-                              child: avatar.isEmpty
-                                  ? const Icon(Icons.person,
-                                      color: AppColors.darkBrown)
-                                  : null,
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // NAME + TIME
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        name,
-                                        style: AppFonts.textTheme.bodyLarge!
-                                            .copyWith(
-                                          fontWeight: unread > 0
-                                              ? FontWeight.w700
-                                              : FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        _formatTime(lastTime),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                      
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: unread > 0
+                                ? AppColors.primaryGold.withOpacity(0.05)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
 
-                                  const SizedBox(height: 4),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 28,
+                                backgroundImage: avatar.isNotEmpty
+                                    ? NetworkImage(avatar)
+                                    : null,
+                                backgroundColor:
+                                    AppColors.primaryGold.withOpacity(0.15),
+                                child: avatar.isEmpty
+                                    ? const Icon(Icons.person,
+                                        color: AppColors.darkBrown)
+                                    : null,
+                              ),
 
-                                  // MESSAGE PREVIEW
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          lastMessage,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: unread > 0
-                                                ? Colors.black87
-                                                : Colors.grey.shade600,
-                                            fontWeight: unread > 0
-                                                ? FontWeight.w500
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                      ),
-                                      if (unread > 0) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: const BoxDecoration(
-                                            color: AppColors.primaryGold,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              unread.toString(),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
+                              Divider(
+                                height: 1,
+                                color: Colors.grey.shade200,
+                              ),
+
+                              const SizedBox(width: 14),
+
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // NAME + TIME
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              style: AppFonts
+                                                  .textTheme.bodyLarge!
+                                                  .copyWith(
+                                                fontWeight: unread > 0
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w600,
                                               ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            _buildStatusChip(status),
+                                          ],
+                                        ),
+                                        Text(
+                                          _formatTime(lastTime),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 4),
+
+                                    // MESSAGE PREVIEW
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            lastMessage,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: unread > 0
+                                                  ? Colors.black87
+                                                  : Colors.grey.shade600,
+                                              fontWeight: unread > 0
+                                                  ? FontWeight.w500
+                                                  : FontWeight.normal,
                                             ),
                                           ),
                                         ),
-                                      ]
-                                    ],
-                                  ),
-                                ],
+                                        if (unread > 0) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6),
+                                            height: 20,
+                                            decoration: const BoxDecoration(
+                                              color: AppColors.primaryGold,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                unread.toString(),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ]
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ));
@@ -216,6 +241,43 @@ class _MessagesPageState extends State<MessagesPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    String label;
+
+    switch (status) {
+      case "confirmed":
+        color = Colors.green;
+        label = "Confirmed";
+        break;
+
+      case "declined":
+        color = Colors.red;
+        label = "Declined";
+        break;
+
+      default:
+        color = Colors.orange;
+        label = "Pending";
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -42,41 +42,52 @@ class GigCard extends StatelessWidget {
           children: [
             // Image
             SizedBox(
-              height: 120,
+              height: 140,
               width: double.infinity,
-              child: hasImage
-                  ? Image.network(
-                      gig.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(),
-                    )
-                  : _placeholder(),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: hasImage
+                        ? Image.network(
+                            gig.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(),
+                          )
+                        : _placeholder(),
+                  ),
+
+                  // 🎵 Genre badge on image
+                  if (primaryGenre.isNotEmpty)
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          primaryGenre,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
 
-            // Content
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (primaryGenre.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGold.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        primaryGenre,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.darkBrown,
-                        ),
-                      ),
-                    ),
-                  if (primaryGenre.isNotEmpty) const SizedBox(height: 8),
+                  // 🎵 Title
                   Text(
                     gig.title,
                     maxLines: 2,
@@ -85,25 +96,55 @@ class GigCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+
                   const SizedBox(height: 6),
-                  Text(
-                    "${gig.location} • ${_shortDate(gig.date)}",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppFonts.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.accentBrown,
-                    ),
+
+                  // 📍 Location + 📅 Date
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          size: 14, color: AppColors.accentBrown),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          gig.location,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppFonts.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.accentBrown,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.calendar_today,
+                          size: 14, color: AppColors.accentBrown),
+                      const SizedBox(width: 4),
+                      Text(
+                        _shortDate(gig.date),
+                        style: AppFonts.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.accentBrown,
+                        ),
+                      ),
+                    ],
                   ),
+
+                  // 📏 Distance
                   if (gig.distance != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        "${gig.distance!.toStringAsFixed(1)} km away",
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryGold,
-                        ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.near_me,
+                              size: 14, color: AppColors.primaryGold),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${gig.distance!.toStringAsFixed(1)} km away",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryGold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],

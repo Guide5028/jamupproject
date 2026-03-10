@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/pages/login_page.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../main.dart' show MainNavigation; // reuse your MainNavigation
 
 class AuthGate extends StatelessWidget {
@@ -21,8 +22,12 @@ class AuthGate extends StatelessWidget {
       stream: supabase.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = snapshot.data?.session ?? supabase.auth.currentSession;
-        if (session != null) return const MainNavigation();
-        return const LoginPage();
+
+        if (session == null) {
+          return const LoginPage();
+        }
+
+        return const MainNavigation();
       },
     );
   }

@@ -173,7 +173,7 @@ class VenueBookingsPage extends StatelessWidget {
                                             avatar: musicianAvatar.isNotEmpty
                                                 ? musicianAvatar
                                                 : gigImage,
-                                            initialStatus: status,
+                                            initialStatus: status, otherUserId: '',
                                           ),
                                         ),
                                       );

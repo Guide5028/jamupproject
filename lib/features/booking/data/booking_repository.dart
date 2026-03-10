@@ -26,8 +26,8 @@ class BookingRepository {
         .or(
           'musician_id.eq.${user.id},venue_id.eq.$venueId',
         )
-        .lt('start_time', endTime.toIso8601String())
-        .gt('end_time', startTime.toIso8601String())
+        .lt('start_time', endTime)
+        .gt('end_time', startTime)
         .maybeSingle();
 
     if (conflict != null) {
@@ -49,13 +49,25 @@ class BookingRepository {
         .single();
 
     // 2) chat
-    final chat = await supabase
+    final existingChat = await supabase
         .from('chats')
-        .insert({'booking_id': booking['id']})
-        .select()
-        .single();
+        .select('id')
+        .eq('booking_id', booking['id'])
+        .maybeSingle();
 
-    final chatId = chat['id'].toString();
+    String chatId;
+
+    if (existingChat != null) {
+      chatId = existingChat['id'].toString();
+    } else {
+      final chat = await supabase
+          .from('chats')
+          .insert({'booking_id': booking['id']})
+          .select()
+          .single();
+
+      chatId = chat['id'].toString();
+    }
 
     // 3) system message
     await sendSystemMessage(chatId: chatId, text: '⏳ Booking request sent');

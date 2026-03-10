@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../widgets/chat_bubble.dart';
+import '../../booking/data/booking_repository.dart';
 
 class ChatPage extends StatefulWidget {
   final String name;
@@ -13,6 +14,7 @@ class ChatPage extends StatefulWidget {
 
   final String? chatId;
   final String? bookingId;
+  final String otherUserId;
 
   const ChatPage({
     super.key,
@@ -21,6 +23,7 @@ class ChatPage extends StatefulWidget {
     this.initialStatus = "pending",
     this.chatId,
     this.bookingId,
+    required this.otherUserId,
   });
 
   @override
@@ -31,6 +34,8 @@ class _ChatPageState extends State<ChatPage> {
   final _supabase = Supabase.instance.client;
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+
+  final BookingRepository bookingRepo = BookingRepository();
 
   late String bookingStatus;
   List<Map<String, dynamic>> _messages = [];
@@ -108,6 +113,10 @@ class _ChatPageState extends State<ChatPage> {
         .listen((data) async {
           final messages = List<Map<String, dynamic>>.from(data);
 
+          // 🔧 Sort messages by time
+          messages.sort((a, b) => DateTime.parse(a['created_at'])
+              .compareTo(DateTime.parse(b['created_at'])));
+
           setState(() {
             _messages = messages;
           });
@@ -133,12 +142,15 @@ class _ChatPageState extends State<ChatPage> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
     _controller.clear();
 
     if (widget.chatId == null) {
       setState(() {
         _messages.add({
-          "sender_id": currentUserId ?? "me",
+          "sender_id": user.id,
           "text": text,
           "type": "user",
         });
@@ -147,14 +159,29 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    await _supabase.from('messages').insert({
-      'chat_id': widget.chatId,
-      'booking_id': widget.bookingId,
-      'sender_id': currentUserId,
-      'text': text,
-      'type': 'user',
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    try {
+      await _supabase.from('messages').insert({
+        'chat_id': widget.chatId,
+        'sender_id': user.id,
+        'text': text,
+        'type': 'user',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      await _supabase.functions.invoke(
+        'send-notification',
+        body: {
+          'chatId': widget.chatId,
+          'senderId': user.id,
+          'senderName': widget.name,
+          'message': text,
+        },
+      );
+
+      print("MESSAGE SENT SUCCESS + NOTIFICATION TRIGGERED");
+    } catch (e) {
+      print("MESSAGE ERROR: $e");
+    }
   }
 
   void _scrollToBottom() {
@@ -231,6 +258,9 @@ class _ChatPageState extends State<ChatPage> {
               radius: 18,
               backgroundImage:
                   widget.avatar.isNotEmpty ? NetworkImage(widget.avatar) : null,
+              child: widget.avatar.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
             ),
             const SizedBox(width: 10),
             Column(
@@ -249,8 +279,10 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(
         children: [
           _buildStatusBanner(),
+          _buildBookingActions(),
           Expanded(
             child: ListView.builder(
+              reverse: false,
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               itemCount: _messages.length,
@@ -285,23 +317,32 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildSystemMessage(String text) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.grey.shade400)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.grey.shade400)),
+        ],
       ),
     );
   }
 
   Widget _buildInputBar() {
+    if (bookingStatus == "declined") {
+      return const SizedBox();
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: const BoxDecoration(
@@ -340,6 +381,57 @@ class _ChatPageState extends State<ChatPage> {
               child: const Icon(Icons.send, color: Colors.white, size: 20),
             ),
           )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingActions() {
+    if (widget.bookingId == null) return const SizedBox();
+
+    if (bookingStatus != "pending") return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              onPressed: () async {
+                await bookingRepo.respondToBooking(
+                  bookingId: widget.bookingId!,
+                  status: "confirmed",
+                );
+
+                setState(() {
+                  bookingStatus = "confirmed";
+                });
+              },
+              child: const Text("Accept"),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              onPressed: () async {
+                await bookingRepo.respondToBooking(
+                  bookingId: widget.bookingId!,
+                  status: "declined",
+                );
+
+                setState(() {
+                  bookingStatus = "declined";
+                });
+              },
+              child: const Text("Decline"),
+            ),
+          ),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../models/gig.dart';
 import '../data/gig_repository.dart';
@@ -31,7 +32,7 @@ class GigController extends ChangeNotifier {
   double? userLng;
   bool isNearbyMode = false;
   int radiusKm = 5;
-  
+
   bool loading = false;
   String? error;
 
@@ -70,42 +71,54 @@ class GigController extends ChangeNotifier {
   }
 
   Future<void> loadNearby({
-    double? lat,
-    double? lng,
-    double radiusKm = 5,
-  }) async {
-    try {
-      loading = true;
-      notifyListeners();
+  double? lat,
+  double? lng,
+  double radiusKm = 5,
+}) async {
+  try {
+    loading = true;
+    notifyListeners();
 
-      // ถ้าไม่ได้ส่ง lat/lng มา → ใช้ cache
-      if (lat == null || lng == null) {
-        if (userLat == null || userLng == null) {
-          throw Exception("User location not available");
-        }
-        lat = userLat;
-        lng = userLng;
+    if (lat == null || lng == null) {
+      if (userLat == null || userLng == null) {
+        throw Exception("User location not available");
       }
-
-      // save cache
-      userLat = lat;
-      userLng = lng;
-
-      final data = await repo.fetchNearbyGigs(
-        userLat: lat!,
-        userLng: lng!,
-        radius: radiusKm,
-      );
-
-      gigs = data;
-      isNearbyMode = true;
-    } catch (e) {
-      error = e.toString();
-    } finally {
-      loading = false;
-      notifyListeners();
+      lat = userLat;
+      lng = userLng;
     }
+
+    userLat = lat;
+    userLng = lng;
+
+    final data = await repo.fetchNearbyGigs(
+      userLat: lat!,
+      userLng: lng!,
+      radius: radiusKm.toDouble(),
+    );
+
+    // ✅ save gigs first
+    gigs = data;
+
+    // ✅ calculate distance
+    for (var g in gigs) {
+      if (g.latitude != null && g.longitude != null) {
+        g.distance = calculateDistance(
+          userLat!,
+          userLng!,
+          g.latitude!,
+          g.longitude!,
+        );
+      }
+    }
+
+    isNearbyMode = true;
+  } catch (e) {
+    error = e.toString();
+  } finally {
+    loading = false;
+    notifyListeners();
   }
+}
 
   Future<void> loadAll() async {
     loading = true;
@@ -211,7 +224,7 @@ class GigController extends ChangeNotifier {
   void setSearchQuery(String v) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), () {
-      searchQuery = v;
+      searchQuery = v.trim();
       notifyListeners();
     });
   }
@@ -228,6 +241,24 @@ class GigController extends ChangeNotifier {
     super.dispose();
   }
 
+  double calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371;
+    final dLat = (lat2 - lat1) * (3.141592653589793 / 180);
+    final dLon = (lon2 - lon1) * (3.141592653589793 / 180);
+
+    final a = (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(lat1 * (3.141592653589793 / 180)) *
+            cos(lat2 * (3.141592653589793 / 180)) *
+            (sin(dLon / 2) * sin(dLon / 2));
+
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return R * c;
+  }
   /* VENUE SIDE */
 
   Future<void> loadMyGigs(String venueId) async {

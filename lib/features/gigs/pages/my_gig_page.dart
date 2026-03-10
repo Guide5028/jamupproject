@@ -147,7 +147,7 @@ class MyGigsPage extends StatelessWidget {
                                             bookingId: bookingId,
                                             name: musicianName,
                                             avatar: musicianAvatar,
-                                            initialStatus: status,
+                                            initialStatus: status, otherUserId: '',
                                           ),
                                         ),
                                       );

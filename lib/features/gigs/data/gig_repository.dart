@@ -113,9 +113,16 @@ class GigRepository {
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception("Not logged in");
 
-    // optional guard (RLS is the real protection)
-    final me =
-        await supabase.from('users').select('role').eq('id', user.id).single();
+    // optional guard (RLS is the real protection)p
+        final me = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+if (me == null || me['role'] != 'musician') {
+  throw Exception("Only musicians can book gigs");
+}
     if ((me['role'] ?? '').toString().toLowerCase() != 'venue') {
       throw Exception("Only venues can create gigs");
     }

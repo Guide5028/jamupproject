@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/notification_service.dart';
 
 class AuthService {
   final supabase = Supabase.instance.client;
@@ -30,7 +31,8 @@ class AuthService {
       email: email,
       password: password,
     );
-    await ensureUserRow(); // 👈 create profile row after real login
+    await ensureUserRow(); 
+    
     return res;
   }
 

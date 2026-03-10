@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:jamup_app/config/app_theme.dart';
+import 'package:jamup_app/core/services/notification_service.dart';
 import 'package:jamup_app/features/auth/widgets/auth_gate.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
+
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_fonts.dart';
 import 'core/constants/app_constants.dart';
@@ -29,6 +32,9 @@ Future<void> main() async {
     ),
   );
 
+  // Initialize OneSignal
+  await NotificationService.initialize();
+
   runApp(const JamUpApp());
 }
 
@@ -42,40 +48,6 @@ class JamUpApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const AuthGate(),
-    );
-  }
-}
-
-/// Watches Supabase auth state and shows either Login or the MainNavigation.
-/// No manual pushing from login/register needed—this reacts automatically.
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final supabase = Supabase.instance.client;
-
-    return StreamBuilder<AuthState>(
-      stream: supabase.auth.onAuthStateChange,
-      // Show last known state immediately to avoid flicker
-      builder: (context, snapshot) {
-        final session = supabase.auth.currentSession;
-
-        // While we wait for the first auth event, show a tiny splash
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (session == null) {
-          // Not signed in
-          return const LoginPage();
-        } else {
-          // Signed in
-          return const MainNavigation();
-        }
-      },
     );
   }
 }

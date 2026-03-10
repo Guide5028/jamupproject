@@ -106,7 +106,7 @@ class MyBookingsPage extends StatelessWidget {
                           bookingId: bookingId,
                           name: venue,
                           avatar: avatar,
-                          initialStatus: status,
+                          initialStatus: status, otherUserId: '',
                         ),
                       ),
                     );

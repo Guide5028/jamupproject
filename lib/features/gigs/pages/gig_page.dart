@@ -9,7 +9,9 @@ import '../data/gig_repository.dart';
 import '../widgets/gig_card.dart';
 
 class GigPage extends StatefulWidget {
-  const GigPage({super.key});
+  final String? searchQuery;
+
+  const GigPage({super.key, this.searchQuery});
 
   @override
   State<GigPage> createState() => _GigPageState();
@@ -38,7 +40,15 @@ class _GigPageState extends State<GigPage> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => GigController(GigRepository())..loadGigs(),
+      create: (_) {
+  final ctrl = GigController(GigRepository())..loadGigs();
+
+  if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
+    ctrl.setSearchQuery(widget.searchQuery!);
+  }
+
+  return ctrl;
+},
       child: Consumer<GigController>(
         builder: (context, ctrl, _) {
           return Scaffold(

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "190648384411",
+    "project_id": "jamupproject",
+    "storage_bucket": "jamupproject.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:190648384411:android:73ec64c552f03040c37f3e",
+        "android_client_info": {
+          "package_name": "com.example.jamupproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAd2aYhlyGjE728DZKpqSJbwU927gImwqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

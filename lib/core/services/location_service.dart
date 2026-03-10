@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class LocationService {
   static Future<Position?> getUserLocation() async {
-    // 🔥 DEV SAFE MODE
     if (kDebugMode) {
       return Position(
-        latitude: 18.7883,   // Chiang Mai
+        latitude: 18.7883,
         longitude: 98.9853,
         timestamp: DateTime.now(),
         accuracy: 1,
@@ -19,16 +19,11 @@ class LocationService {
       );
     }
 
-    // 🔥 PRODUCTION MODE
     try {
-      bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        return null;
-      }
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -41,9 +36,30 @@ class LocationService {
 
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
-      ).timeout(const Duration(seconds: 5));
-    } catch (e) {
+      );
+    } catch (_) {
       return null;
     }
   }
+
+  static Future<String> getCityName() async {
+  final pos = await getUserLocation();
+  if (pos == null) return "Thailand";
+
+  final placemarks = await placemarkFromCoordinates(
+    pos.latitude,
+    pos.longitude,
+  );
+
+  if (placemarks.isEmpty) return "Thailand";
+
+  final p = placemarks.first;
+
+  final city = p.locality ?? p.subAdministrativeArea ?? "";
+  final country = p.isoCountryCode ?? "";
+
+  if (city.isEmpty) return country;
+
+  return "$city, $country";
+}
 }
