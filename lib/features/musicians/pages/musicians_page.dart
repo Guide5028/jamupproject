@@ -8,7 +8,7 @@ import '../../../models/musician.dart';
 import '../widgets/musician_card.dart';
 import '../data/musician_repository.dart';
 
-import '../widgets/musician_filter_bar.dart';
+import '../widgets/filter_bar.dart';
 
 class MusiciansPage extends StatefulWidget {
   const MusiciansPage({super.key});
@@ -266,7 +266,7 @@ class _MusiciansPageState extends State<MusiciansPage> {
             ),
           ),
           // 🎛 Filter bar (Image 1 style)
-          MusicianFilterBar(
+          FilterBar(
             onGenreTap: _openGenreFilter,
             onTypeTap: _openTypeFilter,
             onLocationTap: _openLocationFilter,

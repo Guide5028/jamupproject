@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-
-import 'package:jamup_app/features/musicians/pages/musicians_page.dart';
-import 'package:jamup_app/features/notifications/notifications_page.dart';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/services/location_service.dart';
@@ -15,6 +11,10 @@ import '../../../models/gig.dart';
 import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
 import '../../gigs/data/gig_repository.dart';
+
+import '../../musicians/widgets/filter_bar.dart';
+
+import 'package:jamup_app/features/notifications/notifications_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,6 +34,12 @@ class _HomePageState extends State<HomePage> {
   double? _userLat;
   double? _userLng;
 
+  String searchQuery = "";
+  Set<String> selectedGenres = {};
+  Set<String> selectedTypes = {};
+  Set<String> selectedLocations = {};
+  Set<String> selectedPrices = {};
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +49,106 @@ class _HomePageState extends State<HomePage> {
 
     _loadFuture = _load();
     _cityFuture = LocationService.getCityName();
+  }
+
+  void _openBottomSheet({
+    required String title,
+    required List<String> options,
+    required Set<String> selectedSet,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF121212),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                ...options.map((o) {
+                  final selected = selectedSet.contains(o);
+                  return ListTile(
+                    title: Text(
+                      o,
+                      style: TextStyle(
+                        color: selected ? AppColors.primaryGold : Colors.white,
+                        fontWeight:
+                            selected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    trailing: selected
+                        ? const Icon(Icons.check, color: AppColors.primaryGold)
+                        : null,
+                    onTap: () {
+                      setModalState(() {
+                        if (selected) {
+                          selectedSet.remove(o);
+                        } else {
+                          selectedSet.add(o);
+                        }
+                      });
+                      setState(() {});
+                    },
+                  );
+                }),
+                const SizedBox(height: 20),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openGenreFilter() {
+    _openBottomSheet(
+      title: "Genres",
+      options: ["Jazz", "Rock", "Acoustic"],
+      selectedSet: selectedGenres,
+    );
+  }
+
+  void _openTypeFilter() {
+    _openBottomSheet(
+      title: "Type",
+      options: ["Solo", "Band"],
+      selectedSet: selectedTypes,
+    );
+  }
+
+  void _openLocationFilter() {
+    _openBottomSheet(
+      title: "Location",
+      options: ["Bangkok", "Chiang Mai"],
+      selectedSet: selectedLocations,
+    );
+  }
+
+  void _openPriceFilter() {
+    _openBottomSheet(
+      title: "Price",
+      options: ["< ฿3000", "฿3000-฿10000", "฿10000+"],
+      selectedSet: selectedPrices,
+    );
   }
 
   Future<List<List<Gig>>> _load() async {
@@ -83,6 +189,30 @@ class _HomePageState extends State<HomePage> {
     await _loadFuture;
   }
 
+  List<Gig> filterGigs(List<Gig> gigs) {
+    return gigs.where((g) {
+      final matchesGenre = selectedGenres.isEmpty ||
+          selectedGenres.any((genre) => g.genres
+              .map((e) => e.toLowerCase())
+              .contains(genre.toLowerCase()));
+
+      final matchesSearch = searchQuery.isEmpty ||
+          g.title.toLowerCase().contains(searchQuery) ||
+          g.location.toLowerCase().contains(searchQuery);
+
+      // TEMP (until DB supports these)
+      final matchesType = true;
+      final matchesLocation = true;
+      final matchesPrice = true;
+
+      return matchesGenre &&
+          matchesSearch &&
+          matchesType &&
+          matchesLocation &&
+          matchesPrice;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -91,8 +221,33 @@ class _HomePageState extends State<HomePage> {
         future: _loadFuture,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                const SizedBox(height: 100),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.75,
+                  ),
+                  itemCount: 6,
+                  itemBuilder: (_, __) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    );
+                  },
+                )
+              ],
+            );
           }
+
           if (snap.hasError) {
             return Center(
               child: Padding(
@@ -121,359 +276,281 @@ class _HomePageState extends State<HomePage> {
 
           // Fallback empty lists if something is null
           final data = snap.data ?? [<Gig>[], <Gig>[], <Gig>[]];
-
           final upcomingGigs = data[0];
           final nearbyGigs = data[1];
           final recommendedGigs = data[2];
+          final baseList =
+              recommendedGigs.isNotEmpty ? recommendedGigs : upcomingGigs;
+
+          final filteredRecommended = filterGigs(baseList);
+          final filteredUpcoming = filterGigs(upcomingGigs);
+          final filteredNearby = filterGigs(nearbyGigs);
+          final showRecommended = filterGigs(baseList);
 
           return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.zero,
-              children: [
-                // 🔹 Location + bell
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Color(0xFFB8860B), // dark gold
-                        Color(0xFFD4A017), // rich gold
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(32),
-                    ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(20, 50, 20, 30),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      /// Top row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.location_on,
-                                  color: Colors.white, size: 20),
-                              SizedBox(width: 6),
-                              FutureBuilder<String>(
-                                future: _cityFuture,
-                                builder: (_, snapshot) {
-                                  return Text(
-                                    snapshot.data ?? "Loading location...",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  );
-                                },
-                              )
-                            ],
-                          ),
-                          Stack(
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.notifications_outlined,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const NotificationsPage(),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Positioned(
-                                  right: 4,
-                                  top: 4,
-                                  child:
-                                      StreamBuilder<List<Map<String, dynamic>>>(
-                                    stream: Supabase.instance.client
-                                        .from('notifications')
-                                        .stream(primaryKey: ['id']).map(
-                                            (data) => data
-                                                .where((n) =>
-                                                    n['user_id'] == userId &&
-                                                    n['is_read'] == false)
-                                                .toList()),
-                                    builder: (context, snapshot) {
-                                      if (!snapshot.hasData)
-                                        return const SizedBox();
-
-                                      final unread = snapshot.data!.length;
-
-                                      if (unread == 0) return const SizedBox();
-
-                                      return Container(
-                                        padding: const EdgeInsets.all(5),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 18,
-                                          minHeight: 18,
-                                        ),
-                                        child: Text(
-                                          unread > 9 ? '9+' : '$unread',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      );
-                                    },
-                                  )),
-                            ],
+              onRefresh: _refresh,
+              child: ListView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  children: [
+                    // 🔹 Location + bell
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFB8860B),
+                            Color(0xFFD4A017),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(32),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
                           )
                         ],
                       ),
-
-                      const SizedBox(height: 20),
-
-                      /// Search bar
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            )
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          onSubmitted: (value) {
-                            if (value.trim().isEmpty) return;
-
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    GigPage(searchQuery: value.trim()),
+                      padding: const EdgeInsets.fromLTRB(20, 50, 20, 30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          /// Top row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on,
+                                      color: Colors.white, size: 20),
+                                  SizedBox(width: 6),
+                                  FutureBuilder<String>(
+                                    future: _cityFuture,
+                                    builder: (_, snapshot) {
+                                      return Text(
+                                        snapshot.data ?? "Loading location...",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                ],
                               ),
-                            );
-                          },
-                          decoration: const InputDecoration(
-                            hintText: "Search gigs...",
-                            prefixIcon: Icon(Icons.search),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                              Stack(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.notifications_outlined,
+                                      color: Colors.white,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const NotificationsPage(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  Positioned(
+                                      right: 4,
+                                      top: 4,
+                                      child: StreamBuilder<
+                                          List<Map<String, dynamic>>>(
+                                        stream: Supabase.instance.client
+                                            .from('notifications')
+                                            .stream(primaryKey: ['id']).map(
+                                                (data) => data
+                                                    .where((n) =>
+                                                        n['user_id'] ==
+                                                            userId &&
+                                                        n['is_read'] == false)
+                                                    .toList()),
+                                        builder: (context, snapshot) {
+                                          if (!snapshot.hasData)
+                                            return const SizedBox();
+
+                                          final unread = snapshot.data!.length;
+
+                                          if (unread == 0)
+                                            return const SizedBox();
+
+                                          return Container(
+                                            padding: const EdgeInsets.all(5),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 18,
+                                              minHeight: 18,
+                                            ),
+                                            child: Text(
+                                              unread > 9 ? '9+' : '$unread',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          );
+                                        },
+                                      )),
+                                ],
+                              )
+                            ],
                           ),
-                        ),
-                      ),
 
-                      const SizedBox(height: 25),
+                          const SizedBox(height: 20),
 
-                      /// Hero Text
-                      const Text(
-                        "Your Stage,\nOne Tap Away 🎸",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                          _searchBar(),
 
-                      const SizedBox(height: 8),
+                          const SizedBox(height: 25),
 
-                      const Text(
-                        "Discover gigs that match your sound.",
-                        style: TextStyle(
-                          color: Colors.white70,
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      /// Explore Button
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1F5F5B),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                          /// Hero Text
+                          const Text(
+                            "Your Stage,\nOne Tap Away 🎸",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const GigPage()),
-                          );
-                        },
-                        child: const Text("Explore"),
+
+                          const SizedBox(height: 8),
+
+                          const Text(
+                            "Discover gigs that match your sound.",
+                            style: TextStyle(
+                              color: Colors.white70,
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// Explore Button
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF1F5F5B),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: const Text("Explore"),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const GigPage()),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                const SizedBox(height: 30),
+                    const SizedBox(height: 16),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Explore",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    FilterBar(
+                      onGenreTap: _openGenreFilter,
+                      onTypeTap: _openTypeFilter,
+                      onLocationTap: _openLocationFilter,
+                      onPriceTap: _openPriceFilter,
+                      genreActive: selectedGenres.isNotEmpty,
+                      typeActive: selectedTypes.isNotEmpty,
+                      locationActive: selectedLocations.isNotEmpty,
+                      priceActive: selectedPrices.isNotEmpty,
+                    ),
 
-                const SizedBox(height: 16),
+                    _activeFilters(),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 2.8,
-                    children: [
-                      _categoryCard(
-                        icon: Icons.event_outlined,
-                        title: "Upcoming",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const GigPage()),
-                          );
-                        },
-                      ),
-                      _categoryCard(
-                        icon: Icons.location_on_outlined,
-                        title: "Nearby",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const GigPage()),
-                          );
-                        },
-                      ),
-                      _categoryCard(
-                        icon: Icons.auto_awesome_outlined,
-                        title: "Recommended",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const GigPage()),
-                          );
-                        },
-                      ),
-                      _categoryCard(
-                        icon: Icons.people_outline,
-                        title: "Musicians",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const MusiciansPage()),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+                    const SizedBox(height: 30),
 
-                const SizedBox(height: 30),
+                    // 🔹 Recommended for users
+                    _sectionHeader(context, "Recommended for You",
+                        onSeeAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const GigPage()),
+                      );
+                    }),
 
-                // 🔹 Recommended for users
-                _sectionHeader(context, "Recommended for You", onSeeAll: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GigPage()),
-                  );
-                }),
+                    SizedBox(
+                      height: 300,
+                      child: filteredRecommended.isEmpty
+                          ? const Center(child: Text("No gigs available"))
+                          : ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filteredRecommended.length,
+                              itemBuilder: (_, i) => _gigCardHorizontal(
+                                  context, filteredRecommended[i]),
+                            ),
+                    ),
 
-                SizedBox(
-                  height: 300,
-                  child: recommendedGigs.isEmpty
-                      ? const Center(child: Text("No recommendations yet"))
-                      : ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: recommendedGigs.length,
-                          itemBuilder: (_, i) =>
-                              _gigCardHorizontal(context, recommendedGigs[i]),
-                        ),
-                ),
-                
-                // 🔹 Upcoming
-                _sectionHeader(context, "Upcoming Gigs", onSeeAll: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GigPage()),
-                  );
-                }),
-                SizedBox(
-                  height: 300,
-                  child: upcomingGigs.isEmpty
-                      ? const Center(child: Text("No upcoming gigs"))
-                      : ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: upcomingGigs.length,
-                          itemBuilder: (_, i) =>
-                              _gigCardHorizontal(context, upcomingGigs[i]),
-                        ),
-                ),
+                    // 🔹 Upcoming
+                    _sectionHeader(context, "Upcoming Gigs", onSeeAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const GigPage()),
+                      );
+                    }),
 
-                const SizedBox(height: 30),
+                    SizedBox(
+                      height: 300,
+                      child: filteredUpcoming.isEmpty
+                          ? const Center(child: Text("No upcoming gigs"))
+                          : ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filteredUpcoming.length,
+                              itemBuilder: (_, i) => _gigCardHorizontal(
+                                  context, filteredUpcoming[i]),
+                            ),
+                    ),
 
-                // 🔹 Nearby
-                _sectionHeader(context, "Nearby Gigs", onSeeAll: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GigPage()),
-                  );
-                }),
-                nearbyGigs.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(
-                          child: Text("No nearby gigs yet"),
-                        ),
-                      )
-                    : GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.75,
-                        ),
-                        itemCount: nearbyGigs.length,
-                        itemBuilder: (_, i) =>
-                            _gigCardGrid(context, nearbyGigs[i]),
-                      ),
+                    const SizedBox(height: 30),
+                    // 🔹 Nearby
+                    _sectionHeader(context, "Nearby Gigs", onSeeAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const GigPage()),
+                      );
+                    }),
 
-                const SizedBox(height: 30),
-              ],
-            ),
-          );
+                    filteredNearby.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(child: Text("No nearby gigs")),
+                          )
+                        : GridView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.75,
+                            ),
+                            itemCount: filteredNearby.length,
+                            itemBuilder: (_, i) =>
+                                _gigCardGrid(context, filteredNearby[i]),
+                          ),
+                  ]));
         },
       ),
     );
@@ -800,52 +877,94 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _categoryCard({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGold.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: AppColors.primaryGold,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: AppColors.accentBrown,
-                  ),
-                ],
-              ),
+  Widget _activeFilters() {
+    final allFilters = [
+      ...selectedGenres,
+      ...selectedTypes,
+      ...selectedLocations,
+      ...selectedPrices,
+    ];
+
+    if (allFilters.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
+      child: Wrap(
+        spacing: 8,
+        children: allFilters.map((f) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primaryGold.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.primaryGold),
             ),
-          ),
-        ));
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  f,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.darkBrown,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedGenres.remove(f);
+                      selectedTypes.remove(f);
+                      selectedLocations.remove(f);
+                      selectedPrices.remove(f);
+                    });
+                  },
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: AppColors.darkBrown,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _searchBar({String hint = "Search gigs..."}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: TextField(
+        controller: _searchCtrl,
+        onSubmitted: (value) {
+          if (value.trim().isEmpty) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GigPage(searchQuery: value.trim()),
+            ),
+          );
+        },
+        onChanged: (value) {
+          setState(() {
+            searchQuery = value.toLowerCase().trim();
+          });
+        },
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: const Icon(Icons.search),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
   }
 
   static String _shortDate(DateTime d) {

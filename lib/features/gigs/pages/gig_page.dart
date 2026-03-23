@@ -20,7 +20,14 @@ class GigPage extends StatefulWidget {
 class _GigPageState extends State<GigPage> {
   final _searchCtrl = TextEditingController();
 
-  static const _filters = ["All", "Jazz", "EDM", "Rock", "Acoustic", "HipHop"];
+  static const _filters = [
+    "All",
+    "Nearby",
+    "Jazz",
+    "EDM",
+    "Rock",
+    "Acoustic",
+  ];
   static const _sortItems = {
     "Date ↑": GigSort.dateAsc,
     "Date ↓": GigSort.dateDesc,
@@ -41,14 +48,14 @@ class _GigPageState extends State<GigPage> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) {
-  final ctrl = GigController(GigRepository())..loadGigs();
+        final ctrl = GigController(GigRepository())..loadGigs();
 
-  if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
-    ctrl.setSearchQuery(widget.searchQuery!);
-  }
+        if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
+          ctrl.setSearchQuery(widget.searchQuery!);
+        }
 
-  return ctrl;
-},
+        return ctrl;
+      },
       child: Consumer<GigController>(
         builder: (context, ctrl, _) {
           return Scaffold(
@@ -62,71 +69,29 @@ class _GigPageState extends State<GigPage> {
             body: SafeArea(
               child: Column(
                 children: [
-                  // 🔎 Search bar
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              ctrl.loadAll();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: !ctrl.isNearbyMode
-                                    ? AppColors.primaryGold
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(14),
-                                border:
-                                    Border.all(color: AppColors.primaryGold),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  "Discover",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: !ctrl.isNearbyMode
-                                        ? Colors.white
-                                        : AppColors.primaryGold,
-                                  ),
-                                ),
-                              ),
-                            ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchCtrl,
+                        onChanged: ctrl.setSearchQuery,
+                        decoration: const InputDecoration(
+                          hintText: "Search gigs...",
+                          prefixIcon: Icon(Icons.search),
+                          border: InputBorder.none,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              _showRadiusSheet(context, ctrl);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: ctrl.isNearbyMode
-                                    ? AppColors.primaryGold
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(14),
-                                border:
-                                    Border.all(color: AppColors.primaryGold),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  "Nearby (${ctrl.radiusKm.toInt()} km)",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: ctrl.isNearbyMode
-                                        ? Colors.white
-                                        : AppColors.primaryGold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   // 🔹 Filters row
@@ -140,88 +105,64 @@ class _GigPageState extends State<GigPage> {
                             : ctrl.selectedFilter == f;
 
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(
-                              f,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: selected
-                                    ? Colors.white
-                                    : AppColors.darkBrown,
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(f),
+                              selected: selected,
+                              onSelected: (_) {
+                                if (f == "Nearby") {
+                                  _showRadiusSheet(context, ctrl);
+                                } else if (f == "All") {
+                                  ctrl.toggleFilter("");
+                                } else {
+                                  ctrl.toggleFilter(f);
+                                }
+                              },
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide(
+                                  color: selected
+                                      ? AppColors.primaryGold
+                                      : Colors.grey.shade300,
+                                ),
                               ),
-                            ),
-                            selected: selected,
-                            selectedColor: AppColors.primaryGold,
-                            backgroundColor: Colors.black.withOpacity(0.08),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: const VisualDensity(
-                                horizontal: -2, vertical: -2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            onSelected: (_) {
-                              if (f == "All") {
-                                ctrl.toggleFilter("");
-                              } else {
-                                ctrl.toggleFilter(f);
-                              }
-                            },
-                          ),
-                        );
+                              backgroundColor: Colors.white,
+                              selectedColor: AppColors.primaryGold,
+                              labelStyle: TextStyle(
+                                color: selected ? Colors.white : Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ));
                       }).toList(),
                     ),
                   ),
 
+                  // 🎸 Gig cards grid
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Row(
                       children: [
                         Text(
-                          "${ctrl.filtered.length} ${ctrl.filtered.length == 1 ? "Gig" : "Gigs"} Found",
+                          "${ctrl.filtered.length} gigs",
                           style: AppFonts.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const Spacer(),
-
-                        // 🔽 Sort dropdown
                         DropdownButtonHideUnderline(
                           child: DropdownButton<GigSort>(
                             value: ctrl.sort,
                             icon: const Icon(Icons.sort, size: 20),
-                            style: AppFonts.textTheme.bodyMedium,
-                            onChanged: (v) {
-                              if (v != null) ctrl.setSort(v);
-                            },
+                            onChanged: (v) =>
+                                v != null ? ctrl.setSort(v) : null,
                             items: _sortItems.entries.map((e) {
-                              return DropdownMenuItem<GigSort>(
+                              return DropdownMenuItem(
                                 value: e.value,
                                 child: Text(e.key),
                               );
                             }).toList(),
                           ),
                         ),
-
-                        // Reset button
-                        if (ctrl.searchQuery.trim().isNotEmpty ||
-                            ctrl.selectedFilter.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              ctrl.clearSearch();
-                              ctrl.toggleFilter("");
-                              FocusScope.of(context).unfocus();
-                            },
-                            icon: const Icon(Icons.restart_alt, size: 18),
-                            label: const Text("Reset"),
-                          ),
                       ],
                     ),
                   ),
@@ -276,48 +217,55 @@ class _GigPageState extends State<GigPage> {
                             ],
                           );
                         }
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              ctrl.isNearbyMode
-                                  ? "Gigs Near You"
-                                  : "Discover Gigs",
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.darkBrown,
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  ctrl.isNearbyMode
+                                      ? "Gigs Near You"
+                                      : "Discover Gigs",
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.darkBrown,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                        return RefreshIndicator(
-                          onRefresh: () {
-                            if (ctrl.isNearbyMode && ctrl.userLat != null) {
-                              return ctrl.loadNearby(
-                                lat: ctrl.userLat!,
-                                lng: ctrl.userLng!,
-                              );
-                            } else {
-                              return ctrl.loadAll();
-                            }
-                          },
-                          child: GridView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.78,
-                            ),
-                            itemCount: ctrl.filtered.length,
-                            itemBuilder: (context, i) {
-                              return GigCard(gig: ctrl.filtered[i]);
-                            },
-                          ),
+                            Expanded(
+                                child: RefreshIndicator(
+                              onRefresh: () {
+                                if (ctrl.isNearbyMode && ctrl.userLat != null) {
+                                  return ctrl.loadNearby(
+                                    lat: ctrl.userLat!,
+                                    lng: ctrl.userLng!,
+                                  );
+                                } else {
+                                  return ctrl.loadAll();
+                                }
+                              },
+                              child: GridView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.72,
+                                ),
+                                itemCount: ctrl.filtered.length,
+                                itemBuilder: (context, i) {
+                                  return GigCard(gig: ctrl.filtered[i]);
+                                },
+                              ),
+                            )),
+                          ],
                         );
                       },
                     ),

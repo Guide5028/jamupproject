@@ -17,150 +17,147 @@ class GigCard extends StatelessWidget {
     final primaryGenre = gig.genres.isNotEmpty ? gig.genres.first : "";
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => GigDetailPage(gig: gig)),
+          MaterialPageRoute(
+            builder: (_) => GigDetailPage(gig: gig),
+          ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
             BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // Image
-            SizedBox(
-              height: 140,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: hasImage
-                        ? Image.network(
-                            gig.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _placeholder(),
-                          )
-                        : _placeholder(),
-                  ),
 
-                  // 🎵 Genre badge on image
-                  if (primaryGenre.isNotEmpty)
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          primaryGenre,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+            /// Image
+            Positioned.fill(
+              child: hasImage
+                  ? Image.network(
+                      gig.imageUrl,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.music_note),
                     ),
-                ],
+            ),
+
+            /// Gradient overlay (like musician page)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.7),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
 
-            Padding(
-              padding: const EdgeInsets.all(10),
+            /// Genre badge
+            if (primaryGenre.isNotEmpty)
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    primaryGenre,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+            /// Bottom content
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 🎵 Title
+
+                  /// Title
                   Text(
                     gig.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppFonts.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
                     ),
                   ),
 
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
 
-                  // 📍 Location + 📅 Date
+                  /// Location
                   Row(
                     children: [
                       const Icon(Icons.location_on,
-                          size: 14, color: AppColors.accentBrown),
+                          size: 12, color: Colors.white70),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           gig.location,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppFonts.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.accentBrown,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.calendar_today,
-                          size: 14, color: AppColors.accentBrown),
-                      const SizedBox(width: 4),
-                      Text(
-                        _shortDate(gig.date),
-                        style: AppFonts.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.accentBrown,
                         ),
                       ),
                     ],
                   ),
 
-                  // 📏 Distance
-                  if (gig.distance != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.near_me,
-                              size: 14, color: AppColors.primaryGold),
-                          const SizedBox(width: 4),
-                          Text(
-                            "${gig.distance!.toStringAsFixed(1)} km away",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGold,
-                            ),
-                          ),
-                        ],
+                  const SizedBox(height: 4),
+
+                  /// Date
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today,
+                          size: 12, color: Colors.white70),
+                      const SizedBox(width: 4),
+                      Text(
+                        _shortDate(gig.date),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: Colors.grey.shade200,
-      alignment: Alignment.center,
-      child: const Icon(Icons.music_note, color: AppColors.accentBrown),
     );
   }
 

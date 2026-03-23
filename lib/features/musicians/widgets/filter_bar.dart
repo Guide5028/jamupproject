@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
-class MusicianFilterBar extends StatelessWidget {
+class FilterBar extends StatelessWidget {
   final VoidCallback onGenreTap;
   final VoidCallback onTypeTap;
   final VoidCallback onLocationTap;
@@ -12,7 +12,7 @@ class MusicianFilterBar extends StatelessWidget {
   final bool locationActive;
   final bool priceActive;
 
-  const MusicianFilterBar({
+  const FilterBar({
     super.key,
     required this.onGenreTap,
     required this.onTypeTap,
