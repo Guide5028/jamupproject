@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+
 import 'package:jamup_app/features/booking/pages/schedule_page.dart';
 import 'package:jamup_app/features/booking/pages/venue_bookings_page.dart';
+import 'package:jamup_app/features/profile/widgets/profile_upload_button.dart';
+
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
-import '../../auth/pages/login_page.dart';
+
+
+import '../../../core/widgets/portfolio_grid.dart';
+
 import '../../booking/pages/my_bookings_page.dart';
 import '../data/profile_repository.dart';
 import '../widgets/profile_avatar.dart';
@@ -60,17 +67,17 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> logout() async {
-  try {
-    await OneSignal.logout();
-    await supabase.auth.signOut();
-  } catch (e) {
-    if (!mounted) return;
+    try {
+      await OneSignal.logout();
+      await supabase.auth.signOut();
+    } catch (e) {
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Logout failed: $e')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logout failed: $e')),
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +146,30 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
+
+            if (role == 'musician') ...[
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Portfolio', style: AppFonts.textTheme.headlineMedium),
+                  // _portfolioGridKey is a GlobalKey on the PortfolioGrid
+                  // so we can call refresh() on it after upload
+                  PortfolioUploadButton(
+                    onUploadComplete: () {
+                      setState(
+                          () {}); // triggers rebuild which re-runs FutureBuilder
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              PortfolioGrid(
+                userId: authUser.id,
+                showDeleteButton: true, // your own profile → show delete
+              ),
+            ],
+
             const SizedBox(height: 30),
             const Divider(),
             _menuItem(Icons.calendar_month_outlined, 'My Schedule', () {

@@ -14,8 +14,7 @@ class MyBookingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
-    final musicianId =
-        user?.id ?? 'mock-musician-id'; // TODO: remove mock after auth
+    final musicianId = user?.id ?? '';
 
     return ChangeNotifierProvider(
       create: (_) => BookingController(BookingRepository())
@@ -74,15 +73,15 @@ class MyBookingsPage extends StatelessWidget {
                 switch (status) {
                   case 'confirmed':
                     icon = Icons.check_circle;
-                    color = Colors.green;
+                    color = const Color(0xFF1D9E75);
                     break;
                   case 'declined':
                     icon = Icons.cancel;
-                    color = Colors.red;
+                    color = const Color(0xFFE24B4A);
                     break;
                   default:
                     icon = Icons.hourglass_bottom;
-                    color = Colors.orange;
+                    color = const Color(0xFFEF9F27);
                 }
 
                 return ListTile(
@@ -106,7 +105,8 @@ class MyBookingsPage extends StatelessWidget {
                           bookingId: bookingId,
                           name: venue,
                           avatar: avatar,
-                          initialStatus: status, otherUserId: '',
+                          initialStatus: status,
+                          otherUserId: '',
                         ),
                       ),
                     );

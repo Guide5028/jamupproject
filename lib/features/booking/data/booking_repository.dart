@@ -263,4 +263,29 @@ class BookingRepository {
 
     return review != null;
   }
+
+  Future<List<Map<String, dynamic>>> getPastBookings(String musicianId) async {
+    final res = await supabase
+        .from('bookings')
+        .select('gigs(title, date, location)')
+        .eq('musician_id', musicianId)
+        .eq('status', 'confirmed')
+        .lt('end_time', DateTime.now().toIso8601String())
+        .order('end_time', ascending: false);
+
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getUpcomingBookings(
+      String musicianId) async {
+    final res = await supabase
+        .from('bookings')
+        .select('gigs(id, title, date, location)')
+        .eq('musician_id', musicianId)
+        .eq('status', 'confirmed')
+        .gt('end_time', DateTime.now().toIso8601String())
+        .order('start_time', ascending: true);
+
+    return List<Map<String, dynamic>>.from(res);
+  }
 }

@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+
 import '../../../models/gig.dart';
+
 import '../data/gig_repository.dart';
+
+import '../../../core/services/location_service.dart';
 
 enum GigSort {
   dateAsc,
@@ -31,7 +35,7 @@ class GigController extends ChangeNotifier {
   double? userLat;
   double? userLng;
   bool isNearbyMode = false;
-  int radiusKm = 5;
+  double radiusKm = 25;
 
   bool loading = false;
   String? error;
@@ -47,7 +51,7 @@ class GigController extends ChangeNotifier {
   List<Gig> myGigs = [];
 
   /// Genre filter
-  String selectedFilter = "";
+  Set<String> selectedGenres = {};
 
   /// 🔎 Search
   String searchQuery = "";
@@ -71,54 +75,54 @@ class GigController extends ChangeNotifier {
   }
 
   Future<void> loadNearby({
-  double? lat,
-  double? lng,
-  double radiusKm = 5,
-}) async {
-  try {
-    loading = true;
-    notifyListeners();
+    double? lat,
+    double? lng,
+    double radiusKm = 5,
+  }) async {
+    try {
+      loading = true;
+      notifyListeners();
 
-    if (lat == null || lng == null) {
-      if (userLat == null || userLng == null) {
-        throw Exception("User location not available");
+      if (lat == null || lng == null) {
+        if (userLat == null || userLng == null) {
+          throw Exception("User location not available");
+        }
+        lat = userLat;
+        lng = userLng;
       }
-      lat = userLat;
-      lng = userLng;
-    }
 
-    userLat = lat;
-    userLng = lng;
+      userLat = lat;
+      userLng = lng;
 
-    final data = await repo.fetchNearbyGigs(
-      userLat: lat!,
-      userLng: lng!,
-      radius: radiusKm.toDouble(),
-    );
+      final data = await repo.fetchNearbyGigs(
+        userLat: lat!,
+        userLng: lng!,
+        radius: radiusKm.toDouble(),
+      );
 
-    // ✅ save gigs first
-    gigs = data;
+      // ✅ save gigs first
+      gigs = data;
 
-    // ✅ calculate distance
-    for (var g in gigs) {
-      if (g.latitude != null && g.longitude != null) {
-        g.distance = calculateDistance(
-          userLat!,
-          userLng!,
-          g.latitude!,
-          g.longitude!,
-        );
+      // ✅ calculate distance
+      for (var g in gigs) {
+        if (g.latitude != null && g.longitude != null) {
+          g.distance = calculateDistance(
+            userLat!,
+            userLng!,
+            g.latitude!,
+            g.longitude!,
+          );
+        }
       }
-    }
 
-    isNearbyMode = true;
-  } catch (e) {
-    error = e.toString();
-  } finally {
-    loading = false;
-    notifyListeners();
+      isNearbyMode = true;
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
   }
-}
 
   Future<void> loadAll() async {
     loading = true;
@@ -159,9 +163,13 @@ class GigController extends ChangeNotifier {
     Iterable<Gig> list = gigs;
 
     // 1) Genre filter
-    if (selectedFilter.isNotEmpty) {
+    if (selectedGenres.isNotEmpty) {
       list = list.where((g) => g.genres.any(
-            (gen) => gen.toLowerCase() == selectedFilter.toLowerCase(),
+            (gen) => selectedGenres.any(
+              (s) =>
+                  gen.toLowerCase().contains(s.toLowerCase()) ||
+                  s.toLowerCase().contains(gen.toLowerCase()),
+            ),
           ));
     }
 
@@ -215,8 +223,26 @@ class GigController extends ChangeNotifier {
     return out;
   }
 
-  void toggleFilter(String filter) {
-    selectedFilter = (selectedFilter == filter) ? "" : filter;
+  void toggleFilter(String genre) {
+    if (selectedGenres.contains(genre)) {
+      selectedGenres.remove(genre);
+    } else {
+      selectedGenres.add(genre);
+    }
+    notifyListeners();
+  }
+
+  void setGenreFilters(Set<String> genres) {
+    selectedGenres = {...genres};
+    notifyListeners();
+  }
+
+  void setNearbyRadius(double km) {
+    radiusKm = km;
+    // Reload with new radius using saved coordinates
+    if (userLat != null && userLng != null) {
+      loadNearby(lat: userLat, lng: userLng, radiusKm: km);
+    }
     notifyListeners();
   }
 

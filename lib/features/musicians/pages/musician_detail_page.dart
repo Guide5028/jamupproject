@@ -1,22 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'package:jamup_app/features/booking/data/booking_repository.dart';
+import 'package:jamup_app/features/gigs/pages/gig_detail_page.dart';
+import 'package:jamup_app/features/reviews/data/review_repository.dart';
+import 'package:jamup_app/features/reviews/review_widget.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../../../core/widgets/portfolio_grid.dart'; 
 import '../../../models/musician.dart';
-import '../../booking/pages/create_booking_page.dart';
-class MusicianDetailPage extends StatelessWidget {
+
+class MusicianDetailPage extends StatefulWidget {
   final Musician musician;
 
   const MusicianDetailPage({super.key, required this.musician});
 
+  @override
+  State<MusicianDetailPage> createState() => _MusicianDetailPageState();
+}
+
+class _MusicianDetailPageState extends State<MusicianDetailPage> {
+  // FIX 2: _buildHeaderImage uses widget.musician not musician
   Widget _buildHeaderImage(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
-    if (musician.imageUrl.isEmpty) {
+    if (widget.musician.imageUrl.isEmpty) {
       return Container(
         height: width * 0.6,
         width: double.infinity,
-        color: const Color(0xFFF2F0EA),
+        color: AppColors.background,
         child: const Center(
           child: Icon(Icons.person, color: AppColors.accentBrown, size: 40),
         ),
@@ -24,7 +36,7 @@ class MusicianDetailPage extends StatelessWidget {
     }
 
     return Image.network(
-      musician.imageUrl,
+      widget.musician.imageUrl,
       height: width * 0.6,
       width: double.infinity,
       fit: BoxFit.cover,
@@ -32,7 +44,7 @@ class MusicianDetailPage extends StatelessWidget {
         return Container(
           height: width * 0.6,
           width: double.infinity,
-          color: const Color(0xFFF2F0EA),
+          color: AppColors.background,
           child: const Center(
             child: Icon(Icons.person, color: AppColors.accentBrown, size: 40),
           ),
@@ -43,7 +55,8 @@ class MusicianDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
+    // FIX 4: removed unused `width` variable from build()
+    // width is only needed in _buildHeaderImage, which declares it locally
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -67,47 +80,57 @@ class MusicianDetailPage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // 🖼️ Musician Image
+          // Musician Image
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             child: _buildHeaderImage(context),
           ),
 
-          // 📄 Musician Info
+          // Musician Info
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tags
+                // Tags — FIX 2: widget.musician throughout
                 Wrap(
                   spacing: 8,
                   children: [
-                    if (musician.type.isNotEmpty) _buildTag(musician.type),
-                    if (musician.genre.isNotEmpty) _buildTag(musician.genre),
+                    if (widget.musician.type.isNotEmpty)
+                      _buildTag(widget.musician.type),
+                    if (widget.musician.genre.isNotEmpty)
+                      _buildTag(widget.musician.genre),
                   ],
                 ),
 
                 const SizedBox(height: 10),
 
-                // Name
-                Text(musician.name, style: AppFonts.textTheme.headlineLarge),
+                Text(widget.musician.name,
+                    style: AppFonts.textTheme.headlineLarge),
                 const SizedBox(height: 8),
+
                 Row(
                   children: [
                     const Icon(Icons.location_on,
                         size: 16, color: AppColors.accentBrown),
                     const SizedBox(width: 4),
                     Text(
-                      musician.location ?? "Unknown location",
+                      widget.musician.location ?? "Unknown location",
                       style: AppFonts.textTheme.bodyMedium,
                     ),
                     const SizedBox(width: 12),
                     const Icon(Icons.star, size: 16, color: Colors.amber),
                     const SizedBox(width: 4),
-                    Text(
-                      "${musician.rating ?? 0}/5",
-                      style: AppFonts.textTheme.bodyMedium,
+                    FutureBuilder(
+                      future: ReviewRepository()
+                          .getAverageRating(widget.musician.id),
+                      builder: (context, snapshot) {
+                        final rating = snapshot.data ?? 0.0;
+                        return Text(
+                          "${rating.toStringAsFixed(1)}/5",
+                          style: AppFonts.textTheme.bodyMedium,
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -118,13 +141,15 @@ class MusicianDetailPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.background,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.accentBrown.withOpacity(0.15)),
                   ),
                   child: Text(
-                    musician.bio.isNotEmpty
-                        ? musician.bio
-                        : "${musician.name} hasn’t added a bio yet.",
+                    widget.musician.bio.isNotEmpty
+                        ? widget.musician.bio
+                        : "${widget.musician.name} hasn't added a bio yet.",
                     style: AppFonts.textTheme.bodyLarge,
                   ),
                 ),
@@ -137,7 +162,8 @@ class MusicianDetailPage extends StatelessWidget {
                     const CircleAvatar(
                       radius: 28,
                       backgroundColor: AppColors.primaryGold,
-                      child: Icon(Icons.person, color: Colors.white, size: 28),
+                      child:
+                          Icon(Icons.person, color: Colors.white, size: 28),
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -145,12 +171,13 @@ class MusicianDetailPage extends StatelessWidget {
                       children: [
                         Text("Musician Profile",
                             style: AppFonts.textTheme.bodyMedium),
-                        Text(musician.name,
+                        Text(widget.musician.name,
                             style: AppFonts.textTheme.headlineMedium),
                       ],
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 20),
                 Text("Booking Details",
                     style: AppFonts.textTheme.headlineMedium),
@@ -158,54 +185,140 @@ class MusicianDetailPage extends StatelessWidget {
 
                 Wrap(
                   spacing: 8,
-                  children: musician.performanceTypes.map((t) {
+                  children: widget.musician.performanceTypes.map((t) {
                     return _buildTag(t);
                   }).toList(),
                 ),
 
                 const SizedBox(height: 8),
                 Text(
-                  "Price: ${musician.priceRange ?? 'Contact for pricing'}",
+                  "Price: ${widget.musician.priceRange ?? 'Contact for pricing'}",
                   style: AppFonts.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 24),
+
                 Text("Upcoming Shows",
                     style: AppFonts.textTheme.headlineMedium),
                 const SizedBox(height: 8),
 
-                musician.upcomingGigs.isEmpty
-                    ? const Text("No upcoming shows")
-                    : Column(
-                        children: musician.upcomingGigs.map((g) {
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(g.title),
-                            subtitle: Text("${g.date} • ${g.location}"),
-                          );
-                        }).toList(),
-                      ),
+                FutureBuilder(
+                  future: BookingRepository()
+                      .getUpcomingBookings(widget.musician.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Text("No upcoming shows",
+                          style: AppFonts.textTheme.bodyMedium);
+                    }
+
+                    return Column(
+                      children: snapshot.data!.map<Widget>((b) {
+                        final gig = b['gigs'];
+                        final date = DateTime.parse(gig['date']);
+                        return InkWell(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => GigDetailPage(gig: gig['id']),
+                            ),
+                          ),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                              // FIX 3: border goes directly in BoxDecoration,
+                              // NOT inside boxShadow: []
+                              border: Border.all(
+                                color:
+                                    AppColors.accentBrown.withOpacity(0.15),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event,
+                                    color: AppColors.primaryGold, size: 26),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(gig['title'],
+                                          style: AppFonts.textTheme.bodyLarge),
+                                      const SizedBox(height: 4),
+                                      Text(gig['location'],
+                                          style:
+                                              AppFonts.textTheme.bodyMedium),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "${date.day}/${date.month}/${date.year}",
+                                        style: AppFonts.textTheme.bodyMedium
+                                            ?.copyWith(
+                                                color: AppColors.accentBrown),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
+                Text("Past Performances",
+                    style: AppFonts.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+
+                FutureBuilder(
+                  future: BookingRepository()
+                      .getPastBookings(widget.musician.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Text("No past performances",
+                          style: AppFonts.textTheme.bodyMedium);
+                    }
+
+                    return Column(
+                      children: snapshot.data!.map<Widget>((b) {
+                        final gig = b['gigs'];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.music_note,
+                              color: AppColors.accentBrown),
+                          title: Text(gig['title'],
+                              style: AppFonts.textTheme.bodyLarge),
+                          subtitle: Text(
+                            "${DateTime.parse(gig['date']).toLocal().toString().split(' ')[0]} • ${gig['location']}",
+                            style: AppFonts.textTheme.bodyMedium,
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
+                Text("Reviews", style: AppFonts.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+                ReviewWidget(musicianId: widget.musician.id),
+
                 const SizedBox(height: 24),
                 Text("Media", style: AppFonts.textTheme.headlineMedium),
                 const SizedBox(height: 8),
-
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: musician.mediaImages.length,
-                  itemBuilder: (_, i) {
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        musician.mediaImages[i],
-                        fit: BoxFit.cover,
-                      ),
-                    );
-                  },
+                PortfolioGrid(
+                  userId: widget.musician.id,
+                  showDeleteButton: false,
                 ),
 
                 const SizedBox(height: 20),
@@ -222,19 +335,17 @@ class MusicianDetailPage extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text("Please select an upcoming show to book"),
-    ),
-  );
-},
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text("Please select an upcoming show to book"),
+                        ),
+                      );
+                    },
                     child: Text(
                       "Book Now",
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: AppFonts.textTheme.bodyLarge?.copyWith(
+                          color: AppColors.background, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -246,7 +357,6 @@ class MusicianDetailPage extends StatelessWidget {
     );
   }
 
-  // 🔹 Tag widget
   Widget _buildTag(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -254,10 +364,7 @@ class MusicianDetailPage extends StatelessWidget {
         color: AppColors.primaryGold.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(fontSize: 12, color: AppColors.darkBrown),
-      ),
+      child: Text(text, style: AppFonts.textTheme.bodyMedium),
     );
   }
 }

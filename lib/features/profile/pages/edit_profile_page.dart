@@ -69,8 +69,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final user = supabase.auth.currentUser;
     if (user == null) return null;
 
-    // ✅ cache-busting filename
     final ext = file.path.split('.').last.toLowerCase();
+    if (!['jpg', 'jpeg', 'png'].contains(ext)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only JPG and PNG images are supported.'),
+          ),
+        );
+      }
+      return null;
+    }
     final fileName = "avatar_${DateTime.now().millisecondsSinceEpoch}.$ext";
     final path = "${user.id}/$fileName";
 
@@ -199,8 +208,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       radius: 50,
                       backgroundColor: Colors.grey.shade200,
                       backgroundImage: img,
-                      onBackgroundImageError:
-                          img != null ? (_, __) {} : null, // ✅ key fix
+                      onBackgroundImageError: img != null ? (_, __) {} : null,
                       child: img == null
                           ? const Icon(Icons.person,
                               size: 36, color: AppColors.accentBrown)
@@ -231,8 +239,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   labelText: "Name / Venue",
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? "Name is required" : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Name is required";
+                  if (v.trim().length < 2)
+                    return "Name must be at least 2 characters";
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(

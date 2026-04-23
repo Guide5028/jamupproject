@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+
 import '../../../models/gig.dart';
+
 import '../../messages/pages/chat_page.dart';
+
 import '../../booking/data/booking_repository.dart';
 
 class GigDetailPage extends StatelessWidget {
@@ -47,7 +49,8 @@ class GigDetailPage extends StatelessWidget {
             chatId: chatId,
             name: gig.location,
             avatar: gig.imageUrl,
-            initialStatus: booking['status'] ?? 'pending', otherUserId: '',
+            initialStatus: booking['status'] ?? 'pending',
+            otherUserId: '',
           ),
         ),
       );
@@ -392,11 +395,8 @@ class GigDetailPage extends StatelessWidget {
                 onPressed: () => _bookGig(context),
                 child: Text(
                   "Book Now",
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: AppFonts.textTheme.bodyLarge?.copyWith(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -453,7 +453,7 @@ class GigDetailPage extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.inter(fontSize: 12, color: AppColors.darkBrown),
+        style: AppFonts.textTheme.bodyMedium,
       ),
     );
   }

@@ -53,6 +53,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     setState(() {
       booking = data;
       _loading = false;
+      
     });
   }
 
@@ -145,7 +146,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                     builder: (_) => ChatPage(
                       chatId: chatId,
                       name: '',
-                      avatar: '', otherUserId: 'venue.userId',
+                      avatar: '',
+                      otherUserId: 'venue.userId',
                     ),
                   ),
                 );
@@ -168,23 +170,23 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       )
                     : const Text('Cancel Booking'),
               ),
-  //             if (_canReview && !_alreadyReviewed)
-  // ElevatedButton(
-  //   onPressed: () {
-  //     Navigator.push(
-  //       context,
-  //       MaterialPageRoute(
-  //         builder: (_) => ReviewPage(
-  //           bookingId: booking!['id'],
-  //           reviewedUserId: role == 'venue'
-  //               ? booking!['musician_id']
-  //               : booking!['venue_id'],
-  //         ),
-  //       ),
-  //     );
-  //   },
-  //   child: const Text('Leave Review'),
-  // ),
+            //             if (_canReview && !_alreadyReviewed)
+            // ElevatedButton(
+            //   onPressed: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //         builder: (_) => ReviewPage(
+            //           bookingId: booking!['id'],
+            //           reviewedUserId: role == 'venue'
+            //               ? booking!['musician_id']
+            //               : booking!['venue_id'],
+            //         ),
+            //       ),
+            //     );
+            //   },
+            //   child: const Text('Leave Review'),
+            // ),
           ],
         ),
       ),

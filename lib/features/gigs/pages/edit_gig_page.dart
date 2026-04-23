@@ -100,11 +100,9 @@ class _EditGigPageState extends State<EditGigPage> {
       );
 
       if (!mounted) return;
-      Navigator.pop(context, true); // ✅ return "changed"
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Gig updated ✅")),
       );
-      await Future.delayed(const Duration(milliseconds: 300));
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -129,7 +127,7 @@ class _EditGigPageState extends State<EditGigPage> {
               child: const Text("Cancel"),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE24B4A),),
               onPressed: () => Navigator.pop(context, true),
               child:
                   const Text("Delete", style: TextStyle(color: Colors.white)),
@@ -147,11 +145,9 @@ class _EditGigPageState extends State<EditGigPage> {
       await repo.deleteGig(widget.gig.id);
 
       if (!mounted) return;
-      Navigator.pop(context, true); // ✅ return "changed"
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Gig deleted ✅")),
       );
-      await Future.delayed(const Duration(milliseconds: 300));
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -289,20 +285,18 @@ class _EditGigPageState extends State<EditGigPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.06),
+                    color: const Color(0xFFE24B4A).withOpacity(0.06),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withOpacity(0.15)),
+                    border: Border.all(color: const Color(0xFFE24B4A).withOpacity(0.15)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "Danger Zone",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                        ),
+                        style: AppFonts.textTheme.bodyLarge?.copyWith(color: const Color(0xFFE24B4A), fontWeight: FontWeight.bold),
                       ),
+                      
                       const SizedBox(height: 6),
                       Text(
                         "Deleting a gig cannot be undone.",
@@ -313,8 +307,8 @@ class _EditGigPageState extends State<EditGigPage> {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
+                            foregroundColor: const Color(0xFFE24B4A),
+                            side: BorderSide(color: const Color(0xFFE24B4A)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -327,7 +321,7 @@ class _EditGigPageState extends State<EditGigPage> {
                                   width: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.red,
+                                    color:  const Color(0xFFE24B4A),
                                   ),
                                 )
                               : const Icon(Icons.delete_outline),

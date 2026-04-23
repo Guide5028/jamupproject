@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_fonts.dart';
 import '../../../core/services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -76,11 +76,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 24),
                 Text(
                   "Register for JamUP",
-                  style: GoogleFonts.interTight(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.darkBrown,
-                  ),
+                  style: AppFonts.textTheme.headlineLarge,
                 ),
                 const SizedBox(height: 28),
 

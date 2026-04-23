@@ -29,26 +29,28 @@ class _CreateGigPageState extends State<CreateGigPage> {
   DateTime? _date;
   bool saving = false;
 
+  bool _locationError = false;
+  bool _dateError = false;
+
   @override
-void initState() {
-  super.initState();
+  void initState() {
+    super.initState();
 
-  _location.addListener(() {
-    _latitude = null;
-    _longitude = null;
-  });
-}
+    _location.addListener(() {
+      _latitude = null;
+      _longitude = null;
+    });
+  }
 
-@override
-void dispose() {
-  _title.dispose();
-  _desc.dispose();
-  _location.dispose();
-  _genres.dispose();
-  _imageUrl.dispose();
-  super.dispose();
-}
-
+  @override
+  void dispose() {
+    _title.dispose();
+    _desc.dispose();
+    _location.dispose();
+    _genres.dispose();
+    _imageUrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
@@ -62,6 +64,16 @@ void dispose() {
   }
 
   Future<void> _save() async {
+    setState(() {
+      _locationError = _latitude == null;
+      _dateError = _date == null;
+    });
+    if (_latitude == null || _longitude == null)
+      return; // stops here with red hint visible
+    if (!_formKey.currentState!.validate()) return;
+    if (_date == null) return; // stops here with red hint visible
+
+    setState(() => saving = true);
     if (_latitude == null || _longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -164,8 +176,15 @@ void dispose() {
                     TextPosition(offset: prediction.description!.length),
                   );
                 },
-                
               ),
+              if (_locationError)
+                const Padding(
+                  padding: EdgeInsets.only(left: 12, top: 4),
+                  child: Text(
+                    'Please select a location from the suggestions',
+                    style: TextStyle(color: Color(0xFFE24B4A), fontSize: 12),
+                  ),
+                ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _desc,
@@ -173,16 +192,52 @@ void dispose() {
                 decoration: const InputDecoration(
                     labelText: "Description", border: OutlineInputBorder()),
               ),
+
               const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _pickDate,
-                child: Text(
-                    _date == null
-                        ? "Pick Date"
-                        : "Date: ${_date!.toString().substring(0, 10)}",
-                    style: AppFonts.textTheme.bodyLarge),
+
+              // Genres input
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  OutlinedButton(
+                    onPressed: _pickDate,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: _dateError
+                            ? const Color(0xFFE24B4A)
+                            : AppColors.accentBrown,
+                      ),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          _date == null
+                              ? "Pick Date *"
+                              : "Date: ${_date!.toString().substring(0, 10)}",
+                          style: AppFonts.textTheme.bodyLarge,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_dateError)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 12, top: 4),
+                      child: Text(
+                        'Please pick a date',
+                        style:
+                            TextStyle(color: Color(0xFFE24B4A), fontSize: 12),
+                      ),
+                    ),
+                ],
               ),
+
               const SizedBox(height: 12),
+
               TextFormField(
                 controller: _genres,
                 decoration: const InputDecoration(
@@ -191,7 +246,9 @@ void dispose() {
                   border: OutlineInputBorder(),
                 ),
               ),
+
               const SizedBox(height: 12),
+
               TextFormField(
                 controller: _imageUrl,
                 decoration: const InputDecoration(
@@ -199,7 +256,9 @@ void dispose() {
                   border: OutlineInputBorder(),
                 ),
               ),
+
               const SizedBox(height: 16),
+              
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

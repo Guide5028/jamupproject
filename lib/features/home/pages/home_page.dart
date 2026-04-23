@@ -12,7 +12,9 @@ import '../../gigs/pages/gig_detail_page.dart';
 import '../../gigs/pages/gig_page.dart';
 import '../../gigs/data/gig_repository.dart';
 
-import '../../musicians/widgets/filter_bar.dart';
+import '../../../core/filters/filter_state.dart';
+import '../../../core/widgets/filter_bottom_sheet.dart';
+import '../../../core/widgets/filter_bar.dart';
 
 import 'package:jamup_app/features/notifications/notifications_page.dart';
 
@@ -26,7 +28,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _repo = GigRepository();
   final TextEditingController _searchCtrl = TextEditingController();
-
+  final filters = FilterState();
   late Future<List<List<Gig>>> _loadFuture;
   late final user;
   late final String? userId;
@@ -35,10 +37,6 @@ class _HomePageState extends State<HomePage> {
   double? _userLng;
 
   String searchQuery = "";
-  Set<String> selectedGenres = {};
-  Set<String> selectedTypes = {};
-  Set<String> selectedLocations = {};
-  Set<String> selectedPrices = {};
 
   @override
   void initState() {
@@ -119,38 +117,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openGenreFilter() {
-    _openBottomSheet(
-      title: "Genres",
-      options: ["Jazz", "Rock", "Acoustic"],
-      selectedSet: selectedGenres,
-    );
-  }
-
-  void _openTypeFilter() {
-    _openBottomSheet(
-      title: "Type",
-      options: ["Solo", "Band"],
-      selectedSet: selectedTypes,
-    );
-  }
-
-  void _openLocationFilter() {
-    _openBottomSheet(
-      title: "Location",
-      options: ["Bangkok", "Chiang Mai"],
-      selectedSet: selectedLocations,
-    );
-  }
-
-  void _openPriceFilter() {
-    _openBottomSheet(
-      title: "Price",
-      options: ["< ฿3000", "฿3000-฿10000", "฿10000+"],
-      selectedSet: selectedPrices,
-    );
-  }
-
   Future<List<List<Gig>>> _load() async {
     final position = await LocationService.getUserLocation();
 
@@ -178,9 +144,9 @@ class _HomePageState extends State<HomePage> {
     ]);
 
     return [
-      results[0] as List<Gig>, // upcoming
-      results[1] as List<Gig>, // nearby
-      results[2] as List<Gig>, // recommended based on user's genre preference
+      results[0],
+      results[1],
+      results[2],
     ];
   }
 
@@ -191,8 +157,8 @@ class _HomePageState extends State<HomePage> {
 
   List<Gig> filterGigs(List<Gig> gigs) {
     return gigs.where((g) {
-      final matchesGenre = selectedGenres.isEmpty ||
-          selectedGenres.any((genre) => g.genres
+      final matchesGenre = filters.genres.isEmpty ||
+          filters.genres.any((genre) => g.genres
               .map((e) => e.toLowerCase())
               .contains(genre.toLowerCase()));
 
@@ -200,16 +166,7 @@ class _HomePageState extends State<HomePage> {
           g.title.toLowerCase().contains(searchQuery) ||
           g.location.toLowerCase().contains(searchQuery);
 
-      // TEMP (until DB supports these)
-      final matchesType = true;
-      final matchesLocation = true;
-      final matchesPrice = true;
-
-      return matchesGenre &&
-          matchesSearch &&
-          matchesType &&
-          matchesLocation &&
-          matchesPrice;
+      return matchesGenre && matchesSearch;
     }).toList();
   }
 
@@ -285,7 +242,6 @@ class _HomePageState extends State<HomePage> {
           final filteredRecommended = filterGigs(baseList);
           final filteredUpcoming = filterGigs(upcomingGigs);
           final filteredNearby = filterGigs(nearbyGigs);
-          final showRecommended = filterGigs(baseList);
 
           return RefreshIndicator(
               onRefresh: _refresh,
@@ -462,14 +418,53 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 16),
 
                     FilterBar(
-                      onGenreTap: _openGenreFilter,
-                      onTypeTap: _openTypeFilter,
-                      onLocationTap: _openLocationFilter,
-                      onPriceTap: _openPriceFilter,
-                      genreActive: selectedGenres.isNotEmpty,
-                      typeActive: selectedTypes.isNotEmpty,
-                      locationActive: selectedLocations.isNotEmpty,
-                      priceActive: selectedPrices.isNotEmpty,
+                      onGenreTap: () {
+                        showFilterBottomSheet(
+                          context: context,
+                          title: "Genres",
+                          options: [
+                            "EDM",
+                            "Jazz",
+                            "HipHop",
+                            "Pop",
+                            "Rock",
+                            "Soul"
+                          ],
+                          selectedSet: filters.genres,
+                          refresh: () => setState(() {}),
+                        );
+                      },
+                      onTypeTap: () {
+                        showFilterBottomSheet(
+                          context: context,
+                          title: "Type",
+                          options: ["Solo", "Band"],
+                          selectedSet: filters.types,
+                          refresh: () => setState(() {}),
+                        );
+                      },
+                      onLocationTap: () {
+                        showFilterBottomSheet(
+                          context: context,
+                          title: "Location",
+                          options: ["Bangkok", "Chiang Mai"],
+                          selectedSet: filters.locations,
+                          refresh: () => setState(() {}),
+                        );
+                      },
+                      onPriceTap: () {
+                        showFilterBottomSheet(
+                          context: context,
+                          title: "Price",
+                          options: ["< ฿3000", "฿3000-฿10000", "฿10000+"],
+                          selectedSet: filters.prices,
+                          refresh: () => setState(() {}),
+                        );
+                      },
+                      genreActive: filters.genreActive,
+                      typeActive: filters.typeActive,
+                      locationActive: filters.locationActive,
+                      priceActive: filters.priceActive,
                     ),
 
                     _activeFilters(),
@@ -879,10 +874,10 @@ class _HomePageState extends State<HomePage> {
 
   Widget _activeFilters() {
     final allFilters = [
-      ...selectedGenres,
-      ...selectedTypes,
-      ...selectedLocations,
-      ...selectedPrices,
+      ...filters.genres,
+      ...filters.types,
+      ...filters.locations,
+      ...filters.prices,
     ];
 
     if (allFilters.isEmpty) return const SizedBox.shrink();
@@ -891,6 +886,7 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
       child: Wrap(
         spacing: 8,
+        runSpacing: 8,
         children: allFilters.map((f) {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -914,10 +910,10 @@ class _HomePageState extends State<HomePage> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      selectedGenres.remove(f);
-                      selectedTypes.remove(f);
-                      selectedLocations.remove(f);
-                      selectedPrices.remove(f);
+                      filters.genres.remove(f);
+                      filters.types.remove(f);
+                      filters.locations.remove(f);
+                      filters.prices.remove(f);
                     });
                   },
                   child: const Icon(

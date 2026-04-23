@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import '../constants/app_colors.dart';
 
 class FilterBar extends StatelessWidget {
   final VoidCallback onGenreTap;
   final VoidCallback onTypeTap;
   final VoidCallback onLocationTap;
   final VoidCallback onPriceTap;
-  
+
   final bool genreActive;
   final bool typeActive;
   final bool locationActive;
@@ -27,9 +27,10 @@ class FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
+      height: 40,
       child: ListView(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           _chip("Genre", Icons.music_note, onGenreTap, genreActive),
@@ -40,9 +41,8 @@ class FilterBar extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _chip(
-    
     String label,
     IconData icon,
     VoidCallback onTap,
@@ -56,9 +56,15 @@ class FilterBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color:
-                active ? AppColors.primaryGold : Colors.black.withOpacity(0.08),
+            color: active
+                ? AppColors.primaryGold
+                : Colors.black.withOpacity(0.08),
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: active
+                  ? AppColors.primaryGold
+                  : Colors.black.withOpacity(0.1),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

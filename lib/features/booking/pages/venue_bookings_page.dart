@@ -23,11 +23,11 @@ class VenueBookingsPage extends StatelessWidget {
   Color _statusColor(String s) {
     switch (s) {
       case 'confirmed':
-        return Colors.green;
+        return const Color(0xFF1D9E75); // teal-green
       case 'declined':
-        return Colors.red;
+        return const Color(0xFFE24B4A); // red
       default:
-        return Colors.orange;
+        return const Color(0xFFEF9F27); // amber
     }
   }
 
@@ -96,7 +96,7 @@ class VenueBookingsPage extends StatelessWidget {
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.background,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: const [
                             BoxShadow(
@@ -112,7 +112,8 @@ class VenueBookingsPage extends StatelessWidget {
                               children: [
                                 CircleAvatar(
                                   radius: 18,
-                                  backgroundColor: Colors.grey.shade200,
+                                  backgroundColor:
+                                      AppColors.accentBrown.withOpacity(0.1),
                                   backgroundImage: musicianAvatar.isNotEmpty
                                       ? NetworkImage(musicianAvatar)
                                       : null,
@@ -137,11 +138,10 @@ class VenueBookingsPage extends StatelessWidget {
                                   ),
                                   child: Text(
                                     status,
-                                    style: TextStyle(
-                                      color: _statusColor(status),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
+                                    style: AppFonts.textTheme.bodyMedium
+                                        ?.copyWith(
+                                            color: _statusColor(status),
+                                            fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
@@ -173,7 +173,8 @@ class VenueBookingsPage extends StatelessWidget {
                                             avatar: musicianAvatar.isNotEmpty
                                                 ? musicianAvatar
                                                 : gigImage,
-                                            initialStatus: status, otherUserId: '',
+                                            initialStatus: status,
+                                            otherUserId: '',
                                           ),
                                         ),
                                       );
@@ -187,7 +188,7 @@ class VenueBookingsPage extends StatelessWidget {
                                   Expanded(
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
+                                        backgroundColor: const Color(0xFF1D9E75),
                                         foregroundColor: Colors.white,
                                       ),
                                       onPressed: () => ctrl.respondToBooking(
@@ -201,7 +202,7 @@ class VenueBookingsPage extends StatelessWidget {
                                   Expanded(
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
+                                        backgroundColor: const Color(0xFFE24B4A),
                                         foregroundColor: Colors.white,
                                       ),
                                       onPressed: () => ctrl.respondToBooking(
