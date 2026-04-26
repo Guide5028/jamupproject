@@ -217,16 +217,19 @@ Total estimated effort: **~11 hours of focused work** to go from a thin test sui
 
 ---
 
-## 9. Final targets summary
+## 9. Final targets summary (UPDATED)
 
-| Type              | Current | Target    | Gap      |
-| ----------------- | ------- | --------- | -------- |
-| Unit tests        | 4       | **25**    | **+21**  |
-| Widget tests      | 0       | **8**     | **+8**   |
-| System tests      | 7       | **18**    | **+11**  |
-| **Total tests**   | **11**  | **~51**   | **+40**  |
+| Type              | Current | Original target | Result  |
+| ----------------- | ------- | --------------- | ------- |
+| Unit tests        | **70**  | 25              | **+45 over target** |
+| Widget tests      | 0       | 8               | deferred (not required by professor) |
+| System tests      | **22**  | 18              | **+4 over target** |
+| **Total tests**   | **92**  | ~51             | **+41 over target** |
 
-These numbers are not arbitrary — they come from covering every **controller, repository, service, and model** in your `lib/` folder plus every **major user journey** described in your SRS/SDD documents.
+These numbers come from covering every **controller, model, and core utility** in `lib/` plus every **major user journey** described in the SRS document. The widget tier was deferred at the professor's request ("only unit and system test").
+
+The full traceability matrix mapping each test to URS / SRS / UC IDs lives in
+`JamUP-TestPlan.docx` at the project root.
 
 ---
 
