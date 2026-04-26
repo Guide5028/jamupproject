@@ -49,76 +49,18 @@ class _HomePageState extends State<HomePage> {
     _cityFuture = LocationService.getCityName();
   }
 
-  void _openBottomSheet({
-    required String title,
-    required List<String> options,
-    required Set<String> selectedSet,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF121212),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(title,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                ...options.map((o) {
-                  final selected = selectedSet.contains(o);
-                  return ListTile(
-                    title: Text(
-                      o,
-                      style: TextStyle(
-                        color: selected ? AppColors.primaryGold : Colors.white,
-                        fontWeight:
-                            selected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    trailing: selected
-                        ? const Icon(Icons.check, color: AppColors.primaryGold)
-                        : null,
-                    onTap: () {
-                      setModalState(() {
-                        if (selected) {
-                          selectedSet.remove(o);
-                        } else {
-                          selectedSet.add(o);
-                        }
-                      });
-                      setState(() {});
-                    },
-                  );
-                }),
-                const SizedBox(height: 20),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+  // (Removed `_openBottomSheet` — it was a multi-select filter helper that
+  // nothing currently calls. Keeping it around as dead code was misleading;
+  // when the filter UI gets re-introduced, build it fresh from the new spec.)
 
   Future<List<List<Gig>>> _load() async {
+    // Teaching note: these print() calls are DIAGNOSTIC. When the home
+    // page looks stuck, we can read the VS Code terminal and see exactly
+    // which await is the slow one. Remove or comment out once things work.
+    print('[HomePage._load] started');
+
     final position = await LocationService.getUserLocation();
+    print('[HomePage._load] got position: $position');
 
     if (position != null) {
       _userLat = position.latitude;
@@ -126,6 +68,9 @@ class _HomePageState extends State<HomePage> {
     }
 
     final userGenre = user?.userMetadata?['genre'];
+
+    print('[HomePage._load] fetching gigs (userLat=$_userLat, '
+        'userGenre=$userGenre)');
 
     final results = await Future.wait([
       _repo.fetchUpcoming(limit: 10),
@@ -143,6 +88,9 @@ class _HomePageState extends State<HomePage> {
         Future.value(<Gig>[]),
     ]);
 
+    print('[HomePage._load] done. upcoming=${results[0].length}, '
+        'nearby=${results[1].length}, recommended=${results[2].length}');
+
     return [
       results[0],
       results[1],
@@ -155,18 +103,72 @@ class _HomePageState extends State<HomePage> {
     await _loadFuture;
   }
 
+  // Bucket logic mirrors the controller's `_matchesPriceBucket`. We keep
+  // the parser local to this page (instead of importing it) so the home
+  // page is self-contained — but the rules MUST stay in sync. If you
+  // change one, change both.
+  bool _matchesPriceBucket(double price, String bucket) {
+    final clean = bucket.replaceAll('฿', '').replaceAll(',', '').trim();
+    if (clean.startsWith('<')) {
+      final upper = double.tryParse(clean.substring(1).trim());
+      return upper != null && price < upper;
+    }
+    if (clean.endsWith('+')) {
+      final lower =
+          double.tryParse(clean.substring(0, clean.length - 1).trim());
+      return lower != null && price >= lower;
+    }
+    if (clean.contains('-')) {
+      final parts = clean.split('-');
+      final lower = double.tryParse(parts[0].trim());
+      final upper = double.tryParse(parts[1].trim());
+      return lower != null &&
+          upper != null &&
+          price >= lower &&
+          price <= upper;
+    }
+    return false;
+  }
+
   List<Gig> filterGigs(List<Gig> gigs) {
     return gigs.where((g) {
+      // 1) Genre — already worked. Case-insensitive any-match.
       final matchesGenre = filters.genres.isEmpty ||
           filters.genres.any((genre) => g.genres
               .map((e) => e.toLowerCase())
               .contains(genre.toLowerCase()));
 
+      // 2) Type (role_needed) — the bottom sheet now lists the same role
+      //    options as the Create-Gig form, so values should match exactly.
+      final matchesType = filters.types.isEmpty ||
+          filters.types
+              .map((t) => t.toLowerCase())
+              .contains(g.roleNeeded.toLowerCase());
+
+      // 3) Location — case-insensitive contains. Picking "Bangkok"
+      //    matches "Saxophone Pub, Bangkok" or just "Bangkok".
+      final matchesLocation = filters.locations.isEmpty ||
+          filters.locations
+              .any((s) => g.location.toLowerCase().contains(s.toLowerCase()));
+
+      // 4) Price bucket — only run if `payment` is set. Gigs without a
+      //    payment value are excluded from price-filtered results, which
+      //    is the safe choice (don't pretend a null is in any bucket).
+      final matchesPrice = filters.prices.isEmpty ||
+          (g.payment != null &&
+              filters.prices
+                  .any((b) => _matchesPriceBucket(g.payment!, b)));
+
+      // 5) Free-text search across title + location.
       final matchesSearch = searchQuery.isEmpty ||
           g.title.toLowerCase().contains(searchQuery) ||
           g.location.toLowerCase().contains(searchQuery);
 
-      return matchesGenre && matchesSearch;
+      return matchesGenre &&
+          matchesType &&
+          matchesLocation &&
+          matchesPrice &&
+          matchesSearch;
     }).toList();
   }
 
@@ -435,10 +437,20 @@ class _HomePageState extends State<HomePage> {
                         );
                       },
                       onTypeTap: () {
+                        // "Type" on a GIG = which role the venue needs.
+                        // Keep this list in sync with create_gig_page.dart's
+                        // _roleNeeded dropdown so values round-trip cleanly.
                         showFilterBottomSheet(
                           context: context,
                           title: "Type",
-                          options: ["Solo", "Band"],
+                          options: const [
+                            "Singer",
+                            "Guitarist",
+                            "Pianist",
+                            "Drummer",
+                            "DJ",
+                            "Band",
+                          ],
                           selectedSet: filters.types,
                           refresh: () => setState(() {}),
                         );

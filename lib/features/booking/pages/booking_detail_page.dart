@@ -31,8 +31,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   Future<void> _loadBooking() async {
     final user = supabase.auth.currentUser!;
-    bool _canReview = false;
-    bool _alreadyReviewed = false;
+    // NOTE: review-eligibility flags will live here once the Review feature
+    // is wired up — see the commented-out "Leave Review" button below.
     final me =
         await supabase.from('users').select('role').eq('id', user.id).single();
 
@@ -136,12 +136,17 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
             ElevatedButton(
               onPressed: () async {
+                // Capture Navigator BEFORE the async gap so we never need
+                // `context` after the await. This is the canonical pattern
+                // the analyzer accepts — it can prove safety without
+                // tracing whether `mounted` and `context` are related.
+                final navigator = Navigator.of(context);
                 final chatId = await _repo.getChatIdForBooking(booking!['id']);
 
                 if (chatId == null) return;
+                if (!mounted) return;
 
-                Navigator.push(
-                  context,
+                navigator.push(
                   MaterialPageRoute(
                     builder: (_) => ChatPage(
                       chatId: chatId,
@@ -202,6 +207,9 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       await action();
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      // Same guard as Navigator.push: ScaffoldMessenger.of(context) walks
+      // up the widget tree, which is undefined behaviour after dispose.
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Something went wrong')),
       );

@@ -168,13 +168,26 @@ class _ChatPageState extends State<ChatPage> {
         'created_at': DateTime.now().toIso8601String(),
       });
 
+      // Call the unified `send-notification` Edge Function.
+      // It does TWO things for us:
+      //   1) inserts a row into `notifications` (fills the bell icon)
+      //   2) sends the OneSignal push banner
+      // We pass receiverId directly — ChatPage already knows who the
+      // other participant is via widget.otherUserId.
       await _supabase.functions.invoke(
         'send-notification',
         body: {
-          'chatId': widget.chatId,
-          'senderId': user.id,
-          'senderName': widget.name,
-          'message': text,
+          'receiverId': widget.otherUserId,
+          'title': 'New message from ${widget.name}',
+          'body': text,
+          'type': 'message',
+          // `data.chatId` lets the notification tap handler navigate
+          // straight to this chat in the future. Not used yet, but
+          // free future-proofing.
+          'data': {
+            'chatId': widget.chatId,
+            'bookingId': widget.bookingId,
+          },
         },
       );
 

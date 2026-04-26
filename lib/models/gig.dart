@@ -62,7 +62,12 @@ class Gig {
       musicianId: json['musician_id'] ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      distance: (json['distance'] as num?)?.toDouble(),
+      // The live RPC `get_nearby_gigs` returns this as `distance_km`,
+      // but a future RPC or manual query might use plain `distance`.
+      // Read both, prefer `distance_km` (the source of truth today).
+      // Without this fix, the "X km away" badge was silently always null.
+      distance: (json['distance_km'] as num?)?.toDouble()
+          ?? (json['distance'] as num?)?.toDouble(),
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
 
       roleNeeded: json['role_needed'] ?? '',

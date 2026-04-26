@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_fonts.dart';
+import '../../../core/widgets/favorite_heart_button.dart';
 import '../../../models/gig.dart';
 import '../pages/gig_detail_page.dart';
 
@@ -124,6 +124,22 @@ class GigCard extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                // Heart sits in the OPPOSITE corner from the distance badge
+                // so they never collide. If there's no distance label,
+                // the heart goes to top-right (its natural place).
+                Positioned(
+                  top: 6,
+                  right: distanceLabel != null ? null : 6,
+                  left: distanceLabel != null ? 6 : null,
+                  // When the distance badge is on top-right, we shift the
+                  // heart to top-left to avoid overlap. When there's no
+                  // badge, top-right looks like the standard "wishlist" UI.
+                  child: FavoriteHeartButton(
+                    gigId: gig.id,
+                    size: 18,
+                  ),
+                ),
 
                 /// Bottom content
                 Positioned(

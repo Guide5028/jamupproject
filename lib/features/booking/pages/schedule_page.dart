@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../booking/data/booking_repository.dart';
 import '../../booking/models/schedule_item.dart';
+import '../../booking/pages/booking_detail_page.dart';
 import '../../../core/constants/app_colors.dart';
 
 class SchedulePage extends StatefulWidget {
@@ -170,8 +171,15 @@ class _SchedulePageState extends State<SchedulePage> {
       body: Column(
         children: [
           // ================= HEADER CALENDAR =================
+          // Why a custom Stack with an IconButton instead of an AppBar?
+          // We want to preserve the gradient/rounded-bottom header look.
+          // Flutter's auto-back-button only appears when there IS an AppBar.
+          // No AppBar = no back button. So we add one ourselves and call
+          // Navigator.maybePop() — `maybePop` is safer than `pop` because
+          // it returns `false` instead of throwing when the route stack is
+          // empty (which can happen if this page is ever made the root).
           Container(
-            padding: const EdgeInsets.only(top: 50, bottom: 20),
+            padding: const EdgeInsets.only(top: 40, bottom: 20),
             decoration: const BoxDecoration(
               color: AppColors.primary,
               borderRadius: BorderRadius.vertical(
@@ -180,15 +188,33 @@ class _SchedulePageState extends State<SchedulePage> {
             ),
             child: Column(
               children: [
-                const Text(
-                  "My Schedule",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // Top row: back arrow on the left, title centered.
+                // The empty SizedBox on the right balances the row so
+                // the title stays visually centered.
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.maybePop(context),
+                      tooltip: 'Back',
+                    ),
+                    const Expanded(
+                      child: Text(
+                        "My Schedule",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // Mirror of the back button width so the title is
+                    // perfectly centered. 48 = standard IconButton width.
+                    const SizedBox(width: 48),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TableCalendar(
                   firstDay: DateTime.utc(2024, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
@@ -255,57 +281,78 @@ class _SchedulePageState extends State<SchedulePage> {
                     itemBuilder: (context, index) {
                       final item = selectedEvents[index];
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: AppColors.accentBrown.withOpacity(0.15)),
-                        ),
-                        child: Row(
-                          children: [
-                            // TIME COLUMN
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _formatTime(item.startTime),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatTime(item.endTime),
-                                  style: const TextStyle(
-                                      color: AppColors.accentBrown),
-                                ),
-                              ],
+                      // InkWell wraps the card so the whole row is tappable.
+                      // Tapping opens the booking detail (already exists with
+                      // confirm/decline/cancel actions).
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookingDetailPage(
+                                bookingId: item.bookingId,
+                              ),
                             ),
-
-                            const SizedBox(width: 16),
-
-                            // EVENT INFO
-                            Expanded(
-                              child: Column(
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: AppColors.accentBrown.withOpacity(0.15)),
+                          ),
+                          child: Row(
+                            children: [
+                              // TIME COLUMN
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item.title,
+                                    _formatTime(item.startTime),
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    item.location,
-                                    style: const TextStyle(color: Colors.grey),
+                                    _formatTime(item.endTime),
+                                    style: const TextStyle(
+                                        color: AppColors.accentBrown),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
+
+                              const SizedBox(width: 16),
+
+                              // EVENT INFO
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item.location,
+                                      style:
+                                          const TextStyle(color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Right chevron hints the row is tappable.
+                              const Icon(Icons.chevron_right,
+                                  color: AppColors.accentBrown),
+                            ],
+                          ),
                         ),
                       );
                     },

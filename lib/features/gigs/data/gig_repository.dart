@@ -1,34 +1,75 @@
+// ============================================================================
+// gig_repository.dart  —  All DB access that touches the `gigs` table
+// ============================================================================
+// Teacher note for Guide:
+//  • A "repository" is the single class that owns reading/writing one table.
+//    UI widgets never call Supabase directly — they go through here. That
+//    way, if the schema changes, we only fix ONE file, not ten.
+//  • Every method returns a typed `Gig` or `List<Gig>` so the UI never has
+//    to remember column names (`json['venue_id']` etc.).
+// ============================================================================
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../models/gig.dart';
 
 class GigRepository {
   SupabaseClient get supabase => Supabase.instance.client;
 
-  /// ✅ Venue: delete gig (safe + professional)
-  Future<void> deleteGig(String gigId) async {
+  // ───────────────────────────────────────────────────────────────────
+  // CREATE  (venue only)
+  // ───────────────────────────────────────────────────────────────────
+  Future<void> createGig({
+    required String title,
+    required String description,
+    required DateTime date,
+    required String location,
+    required List<String> genres,
+    required double latitude,
+    required double longitude,
+    String imageUrl = '',
+    double? payment,
+    String? roleNeeded,
+    int slots = 1,
+    DateTime? startTime,
+    DateTime? endTime,
+  }) async {
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception("Not logged in");
 
-    // owner guard
-    final row =
-        await supabase.from('gigs').select('venue_id').eq('id', gigId).single();
+    // App-layer role guard. RLS is the REAL guard (see gigs_insert_venue_only
+    // in the migration), this is just a nicer error message for the UI.
+    final me = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    if (row['venue_id'].toString() != user.id) {
-      throw Exception("You can only delete your own gig");
+    final role = (me?['role'] ?? '').toString().toLowerCase();
+    if (role != 'venue') {
+      throw Exception('Only venues can create gigs');
     }
 
-    // prevent deleting gigs that already have bookings
-    final bookings =
-        await supabase.from('bookings').select('id').eq('gig_id', gigId);
-
-    if ((bookings as List).isNotEmpty) {
-      throw Exception("Can't delete gig with bookings. Cancel bookings first.");
-    }
-
-    await supabase.from('gigs').delete().eq('id', gigId);
+    await supabase.from('gigs').insert({
+      'title': title,
+      'description': description,
+      'date': date.toIso8601String(),
+      'location': location,
+      'venue_id': user.id,
+      'image_url': imageUrl,
+      'genres': genres,
+      'latitude': latitude,
+      'longitude': longitude,
+      'payment': payment,
+      'role_needed': roleNeeded,
+      'slots': slots,
+      if (startTime != null) 'start_time': startTime.toIso8601String(),
+      if (endTime != null) 'end_time': endTime.toIso8601String(),
+    });
   }
 
-  /// ✅ Venue: update gig (safe)
+  // ───────────────────────────────────────────────────────────────────
+  // UPDATE  (venue, own gigs only)
+  // ───────────────────────────────────────────────────────────────────
   Future<void> updateGig({
     required String gigId,
     required String title,
@@ -37,33 +78,85 @@ class GigRepository {
     required String location,
     required List<String> genres,
     String imageUrl = '',
+    double? latitude,
+    double? longitude,
+    double? payment,
+    String? roleNeeded,
+    int? slots,
+    DateTime? startTime,
+    DateTime? endTime,
   }) async {
     final user = supabase.auth.currentUser;
     if (user == null) throw Exception("Not logged in");
 
-    // owner guard
-    final row =
-        await supabase.from('gigs').select('venue_id').eq('id', gigId).single();
+    // Owner guard in app code for a friendly message.
+    final row = await supabase
+        .from('gigs')
+        .select('venue_id')
+        .eq('id', gigId)
+        .single();
 
     if (row['venue_id'].toString() != user.id) {
-      throw Exception("You can only edit your own gig");
+      throw Exception('You can only edit your own gig');
     }
 
-    await supabase.from('gigs').update({
+    // Build payload dynamically so we don't overwrite columns the user
+    // didn't touch with `null`.
+    final payload = <String, dynamic>{
       'title': title,
       'description': description,
       'date': date.toIso8601String(),
       'location': location,
       'image_url': imageUrl,
       'genres': genres,
-    }).eq('id', gigId);
+    };
+    if (latitude != null) payload['latitude'] = latitude;
+    if (longitude != null) payload['longitude'] = longitude;
+    if (payment != null) payload['payment'] = payment;
+    if (roleNeeded != null) payload['role_needed'] = roleNeeded;
+    if (slots != null) payload['slots'] = slots;
+    if (startTime != null) payload['start_time'] = startTime.toIso8601String();
+    if (endTime != null) payload['end_time'] = endTime.toIso8601String();
+
+    await supabase.from('gigs').update(payload).eq('id', gigId);
   }
 
+  // ───────────────────────────────────────────────────────────────────
+  // DELETE  (venue, own gigs only, no existing bookings)
+  // ───────────────────────────────────────────────────────────────────
+  Future<void> deleteGig(String gigId) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception('Not logged in');
+
+    final row = await supabase
+        .from('gigs')
+        .select('venue_id')
+        .eq('id', gigId)
+        .single();
+
+    if (row['venue_id'].toString() != user.id) {
+      throw Exception('You can only delete your own gig');
+    }
+
+    final bookings =
+        await supabase.from('bookings').select('id').eq('gig_id', gigId);
+
+    if ((bookings as List).isNotEmpty) {
+      throw Exception(
+          "Can't delete a gig with bookings. Cancel them first.");
+    }
+
+    await supabase.from('gigs').delete().eq('id', gigId);
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // READ
+  // ───────────────────────────────────────────────────────────────────
   Future<List<Gig>> fetchUpcoming({int limit = 10}) async {
     final rows = await supabase
         .from('gigs')
         .select('*')
-        .gte('date', DateTime.now())
+        .gte('date', DateTime.now().toIso8601String())
         .order('date', ascending: true)
         .limit(limit);
 
@@ -88,7 +181,6 @@ class GigRepository {
     return rows.map((j) => Gig.fromJson(j)).toList();
   }
 
-  // ✅ NEW: venue fetch own gigs
   Future<List<Gig>> fetchMyGigs(String venueId) async {
     final rows = await supabase
         .from('gigs')
@@ -99,62 +191,21 @@ class GigRepository {
     return (rows as List).map((j) => Gig.fromJson(j)).toList();
   }
 
-  // venue create gig
-  Future<void> createGig({
-    required String title,
-    required String description,
-    required DateTime date,
-    required String location,
-    required List<String> genres,
-    required double latitude,
-    required double longitude,
-    String imageUrl = '',
-  }) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) throw Exception("Not logged in");
-
-    // optional guard (RLS is the real protection)p
-        final me = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-if (me == null || me['role'] != 'musician') {
-  throw Exception("Only musicians can book gigs");
-}
-    if ((me['role'] ?? '').toString().toLowerCase() != 'venue') {
-      throw Exception("Only venues can create gigs");
-    }
-
-    await supabase.from('gigs').insert({
-      'title': title,
-      'description': description,
-      'date': date.toIso8601String(),
-      'location': location,
-      'venue_id': user.id,
-      'image_url': imageUrl,
-      'genres': genres,
-      'latitude': latitude,
-      'longitude': longitude,
-    });
-  }
-
   Future<List<Gig>> fetchNearbyGigs({
-  required double userLat,
-  required double userLng,
-  required double radius,
-}) async {
-  final response = await supabase.rpc(
-    'get_nearby_gigs',
-    params: {
-      'user_lat': userLat,
-      'user_lng': userLng,
-      'radius_km': radius,
-    },
-  );
+    required double userLat,
+    required double userLng,
+    required double radius,
+  }) async {
+    final response = await supabase.rpc(
+      'get_nearby_gigs',
+      params: {
+        'user_lat': userLat,
+        'user_lng': userLng,
+        'radius_km': radius,
+      },
+    );
 
-  final rows = List<Map<String, dynamic>>.from(response);
-  return rows.map((j) => Gig.fromJson(j)).toList();
-}
+    final rows = List<Map<String, dynamic>>.from(response);
+    return rows.map((j) => Gig.fromJson(j)).toList();
+  }
 }

@@ -15,6 +15,13 @@ class NotificationsPage extends StatelessWidget {
             color: AppColors.accentBrown);
       case 'gig_invite':
         return const Icon(Icons.music_note, color: AppColors.primaryGold);
+      case 'booking_request':
+        return const Icon(Icons.event_note, color: AppColors.primaryGold);
+      case 'booking_confirmed':
+        return const Icon(Icons.check_circle_outline,
+            color: Colors.green);
+      case 'booking_declined':
+        return const Icon(Icons.cancel_outlined, color: Colors.red);
       case 'musician_follow':
         return const Icon(Icons.person_add, color: AppColors.accentBrown);
       case 'nearby_gig':

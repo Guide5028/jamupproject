@@ -118,7 +118,29 @@ class _GigPageState extends State<GigPage> {
         builder: (context, ctrl, _) {
           final filters = context.watch<FilterState>();
 
-          ctrl.setGenreFilters(filters.genres);
+          // ⚠️ Why addPostFrameCallback?
+          // We're INSIDE a build() here. If we call setGenreFilters()
+          // directly, it triggers notifyListeners() which schedules a
+          // rebuild — but we're already building, so Flutter throws
+          // "setState() called during build".
+          //
+          // addPostFrameCallback queues the call to run AFTER this
+          // current frame finishes painting. By then Flutter is idle
+          // and safe to accept new state changes.
+          //
+          // Together with the setEquals() guard inside setGenreFilters,
+          // this also prevents an infinite rebuild loop: the second
+          // call sees no change and returns early.
+          // Push ALL active filter sets into the controller AFTER the
+          // frame is done painting. Each setX() short-circuits if the
+          // value is unchanged (setEquals guard inside the controller),
+          // so this is cheap on every rebuild.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ctrl.setGenreFilters(filters.genres);
+            ctrl.setTypeFilters(filters.types);
+            ctrl.setLocationFilters(filters.locations);
+            ctrl.setPriceFilters(filters.prices);
+          });
 
           return Scaffold(
             backgroundColor: AppColors.background,
@@ -181,7 +203,29 @@ class _GigPageState extends State<GigPage> {
                         },
                       );
                     },
-                    onTypeTap: () {},
+                    onTypeTap: () {
+                      // Same role list as Create Gig + Home page. Selecting
+                      // a role here narrows results to gigs whose
+                      // role_needed exactly matches.
+                      showFilterBottomSheet(
+                        context: context,
+                        title: "Type",
+                        options: const [
+                          "Singer",
+                          "Guitarist",
+                          "Pianist",
+                          "Drummer",
+                          "DJ",
+                          "Band",
+                        ],
+                        selectedSet: filters.types,
+                        refresh: () {
+                          context
+                              .read<GigController>()
+                              .setTypeFilters(filters.types);
+                        },
+                      );
+                    },
                     onLocationTap: () async {
                       if (ctrl.isNearbyMode) {
                         ctrl.loadAll(); // turn off → back to all gigs
@@ -207,7 +251,26 @@ class _GigPageState extends State<GigPage> {
                             .distance); // sort closest first automatically
                       }
                     },
-                    onPriceTap: () {},
+                    onPriceTap: () {
+                      // Bucket labels MUST stay in sync with the parser
+                      // in GigController._matchesPriceBucket. The "฿"
+                      // is stripped by the parser, so it's purely visual.
+                      showFilterBottomSheet(
+                        context: context,
+                        title: "Price",
+                        options: const [
+                          "<฿3000",
+                          "฿3000-฿10000",
+                          "฿10000+",
+                        ],
+                        selectedSet: filters.prices,
+                        refresh: () {
+                          context
+                              .read<GigController>()
+                              .setPriceFilters(filters.prices);
+                        },
+                      );
+                    },
                     genreActive: filters.genreActive,
                     typeActive: filters.typeActive,
                     locationActive: ctrl.isNearbyMode,

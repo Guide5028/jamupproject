@@ -4,8 +4,9 @@ import 'package:jamup_app/features/booking/pages/schedule_page.dart';
 import 'package:jamup_app/features/booking/pages/venue_bookings_page.dart';
 import 'package:jamup_app/features/profile/widgets/profile_upload_button.dart';
 
-import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/services/auth_service.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
@@ -14,6 +15,7 @@ import '../../../core/constants/app_fonts.dart';
 import '../../../core/widgets/portfolio_grid.dart';
 
 import '../../booking/pages/my_bookings_page.dart';
+import '../../favorites/pages/favorites_page.dart';
 import '../data/profile_repository.dart';
 import '../widgets/profile_avatar.dart';
 import 'edit_profile_page.dart';
@@ -68,8 +70,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> logout() async {
     try {
-      await OneSignal.logout();
-      await supabase.auth.signOut();
+      // AuthService.signOut() now does the full cleanup:
+      //   1. Delete this device's row from `device_tokens`
+      //   2. OneSignal.logout()  (detach external user id)
+      //   3. supabase.auth.signOut()
+      // Doing it in one place means we can't forget a step.
+      await AuthService().signOut();
     } catch (e) {
       if (!mounted) return;
 
@@ -202,7 +208,12 @@ class _ProfilePageState extends State<ProfilePage> {
               }),
             ],
             // non-specific menu items
-            _menuItem(Icons.favorite_border, 'Favorites', () {}),
+            _menuItem(Icons.favorite_border, 'Favorites', () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FavoritesPage()),
+              );
+            }),
             const Divider(),
             _menuItem(Icons.settings_outlined, 'Settings', () {
               Navigator.push(context,

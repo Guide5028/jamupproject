@@ -1,7 +1,52 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BookingRepository {
-  final supabase = Supabase.instance.client;
+  // Use a getter so subclasses (e.g. tests' FakeBookingRepository) can
+  // be instantiated WITHOUT first booting Supabase. Reading the field
+  // eagerly at construction time made this class unusable in unit tests.
+  SupabaseClient get supabase => Supabase.instance.client;
+
+  // ─── Private notification helper ──────────────────────────────
+  // Sends BOTH: bell icon row + OneSignal push, via our Edge Function.
+  // Wrapped in try/catch so a notification failure never breaks the
+  // actual booking flow — notifications are "nice to have", bookings
+  // are "must work".
+  Future<void> _notify({
+    required String receiverId,
+    required String title,
+    required String body,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      await supabase.functions.invoke('send-notification', body: {
+        'receiverId': receiverId,
+        'title': title,
+        'body': body,
+        'type': type,
+        'data': data ?? {},
+      });
+    } catch (e) {
+      // Log but don't rethrow — booking succeeded, notification is best-effort.
+      print('⚠️ notify failed: $e');
+    }
+  }
+
+  // ─── Get the current user's display name (for richer notifications) ──
+  Future<String> _currentUserName() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return 'Someone';
+    try {
+      final row = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', user.id)
+          .maybeSingle();
+      return (row?['name'] as String?) ?? 'Someone';
+    } catch (_) {
+      return 'Someone';
+    }
+  }
 
   Future<Map<String, dynamic>> createBookingAndChat({
     required String gigId,
@@ -69,8 +114,23 @@ class BookingRepository {
       chatId = chat['id'].toString();
     }
 
-    // 3) system message
+    // 3) system message (visible inside the chat)
     await sendSystemMessage(chatId: chatId, text: '⏳ Booking request sent');
+
+    // 4) 🔔 Notify the VENUE that a musician just requested this gig.
+    //     This triggers push banner + fills their bell icon inbox.
+    final musicianName = await _currentUserName();
+    await _notify(
+      receiverId: venueId,
+      title: 'New booking request 🎵',
+      body: '$musicianName wants to book your gig',
+      type: 'booking_request',
+      data: {
+        'bookingId': booking['id'].toString(),
+        'chatId': chatId,
+        'gigId': gigId,
+      },
+    );
 
     return {'booking': booking, 'chatId': chatId};
   }
@@ -214,6 +274,47 @@ class BookingRepository {
             : '❌ Booking cancelled';
 
     await sendSystemMessage(chatId: chatId, text: text);
+
+    // 🔔 Notify the MUSICIAN about the venue's decision.
+    // We look up the booking to get the musician_id as the receiver,
+    // and use the venue's name (= the user currently logged in)
+    // to personalise the message.
+    try {
+      final booking = await supabase
+          .from('bookings')
+          .select('musician_id, venue_id, gig_id')
+          .eq('id', bookingId)
+          .single();
+
+      final venueName = await _currentUserName();
+      final title = status == 'confirmed'
+          ? 'Booking confirmed ✅'
+          : status == 'declined'
+              ? 'Booking declined ❌'
+              : 'Booking cancelled';
+
+      final body = status == 'confirmed'
+          ? '$venueName confirmed your booking!'
+          : status == 'declined'
+              ? '$venueName declined your request.'
+              : 'Your booking was cancelled.';
+
+      await _notify(
+        receiverId: booking['musician_id'].toString(),
+        title: title,
+        body: body,
+        type: status == 'confirmed'
+            ? 'booking_confirmed'
+            : 'booking_declined',
+        data: {
+          'bookingId': bookingId,
+          'chatId': chatId,
+          'gigId': booking['gig_id']?.toString(),
+        },
+      );
+    } catch (e) {
+      print('⚠️ booking response notify failed: $e');
+    }
   }
 
   Future<void> cancelBooking(String bookingId) async {

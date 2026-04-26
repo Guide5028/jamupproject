@@ -4,10 +4,11 @@ import 'package:jamup_app/core/services/notification_service.dart';
 import 'package:jamup_app/features/auth/widgets/auth_gate.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
+// Removed: onesignal_flutter, app_colors, app_fonts, login_page imports —
+// the analyzer flagged them as never referenced from main.dart. OneSignal
+// is initialized inside notification_service.dart (correctly) and login_page
+// is rendered through auth_gate, so main.dart never imports them directly.
 
-import 'core/constants/app_colors.dart';
-import 'core/constants/app_fonts.dart';
 import 'core/constants/app_constants.dart';
 
 // Pages
@@ -16,7 +17,6 @@ import 'features/gigs/pages/gig_page.dart';
 import 'features/profile/pages/profile_page.dart';
 import 'features/musicians/pages/musicians_page.dart';
 import 'features/messages/pages/messages_page.dart';
-import 'features/auth/pages/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

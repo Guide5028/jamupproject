@@ -1,3 +1,23 @@
+// ============================================================================
+// my_bookings_page.dart   —   musician's view of their booking requests
+// ============================================================================
+// Teacher notes for Guide:
+//
+//   • The previous version was bare. This one adds:
+//     1. Status filter chips (All / Pending / Confirmed / Declined)
+//     2. A useful empty-state with guidance instead of "No bookings found"
+//     3. Cleaner date formatting using DateTime.parse + manual format
+//        (no extra package required, predictable display)
+//     4. Status pills next to each booking — at-a-glance state visible
+//        without tapping into the booking
+//
+//   • Why filter chips? When a musician has 30 booking requests across
+//     statuses, a flat list is overwhelming. Letting them narrow to
+//     "Confirmed" instantly turns this into a "what gigs do I have"
+//     screen (a different mental model from the schedule page, which
+//     is calendar-based).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,8 +28,28 @@ import '../../messages/pages/chat_page.dart';
 import '../controllers/booking_controller.dart';
 import '../data/booking_repository.dart';
 
-class MyBookingsPage extends StatelessWidget {
+/// We use a typed enum instead of magic strings so the compiler catches
+/// typos. Each value carries its display label + Supabase status string.
+enum _StatusFilter {
+  all('All', null),
+  pending('Pending', 'pending'),
+  confirmed('Confirmed', 'confirmed'),
+  declined('Declined', 'declined');
+
+  const _StatusFilter(this.label, this.value);
+  final String label;
+  final String? value; // null means "no filter"
+}
+
+class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
+
+  @override
+  State<MyBookingsPage> createState() => _MyBookingsPageState();
+}
+
+class _MyBookingsPageState extends State<MyBookingsPage> {
+  _StatusFilter _selected = _StatusFilter.all;
 
   @override
   Widget build(BuildContext context) {
@@ -19,103 +59,281 @@ class MyBookingsPage extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => BookingController(BookingRepository())
         ..loadBookingsForMusician(musicianId),
-      child: Consumer<BookingController>(
-        builder: (context, ctrl, _) {
-          if (ctrl.loading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (ctrl.error != null) {
-            return Scaffold(
-              body: Center(child: Text("Error: ${ctrl.error}")),
-            );
-          }
-          if (ctrl.bookings.isEmpty) {
-            return Scaffold(
-              backgroundColor: AppColors.background,
-              appBar: AppBar(
-                title: const Text("My Bookings"),
-                backgroundColor: AppColors.background,
-                elevation: 0,
-                iconTheme: const IconThemeData(color: AppColors.darkBrown),
-              ),
-              body: const Center(child: Text("No bookings found")),
-            );
-          }
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text("My Bookings"),
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: AppColors.darkBrown),
+        ),
+        body: Consumer<BookingController>(
+          builder: (context, ctrl, _) {
+            if (ctrl.loading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            appBar: AppBar(
-              title: const Text("My Bookings"),
-              backgroundColor: AppColors.background,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: AppColors.darkBrown),
-            ),
-            body: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: ctrl.bookings.length,
-              separatorBuilder: (_, __) => const Divider(),
-              itemBuilder: (context, i) {
-                final booking = ctrl.bookings[i];
-                final gig = (booking['gigs'] ?? {}) as Map<String, dynamic>;
-                final status = (booking['status'] ?? 'pending') as String;
-                final venue = (gig['location'] ?? 'Unknown venue') as String;
-                final title = (gig['title'] ?? 'Untitled gig') as String;
-                final date = (gig['date'] ?? '') as String;
-                final avatar = (gig['image_url'] ??
-                        'https://via.placeholder.com/150.png?text=$venue')
-                    as String;
+            if (ctrl.error != null) {
+              return _errorState(ctrl.error!);
+            }
 
-                // pick icon + color by status
-                IconData icon;
-                Color color;
-                switch (status) {
-                  case 'confirmed':
-                    icon = Icons.check_circle;
-                    color = const Color(0xFF1D9E75);
-                    break;
-                  case 'declined':
-                    icon = Icons.cancel;
-                    color = const Color(0xFFE24B4A);
-                    break;
-                  default:
-                    icon = Icons.hourglass_bottom;
-                    color = const Color(0xFFEF9F27);
-                }
+            // Apply the in-memory status filter. We do this in the page
+            // rather than pushing a new param to the controller — the
+            // dataset is small and filtering client-side is instant.
+            final all = ctrl.bookings;
+            final visible = _selected.value == null
+                ? all
+                : all
+                    .where((b) =>
+                        (b['status'] ?? '').toString() == _selected.value)
+                    .toList();
 
-                return ListTile(
-                  leading: Icon(icon, color: color),
-                  title: Text(title, style: AppFonts.textTheme.bodyLarge),
-                  subtitle: Text("$venue • $date",
-                      style: AppFonts.textTheme.bodyMedium),
-                  trailing: const Icon(Icons.chat_bubble_outline,
-                      color: AppColors.accentBrown),
-                  onTap: () async {
-                    final repo = BookingRepository();
-                    final bookingId = booking['id'].toString();
-                    final chatId = await repo.getChatIdForBooking(bookingId);
-
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatPage(
-                          chatId: chatId,
-                          bookingId: bookingId,
-                          name: venue,
-                          avatar: avatar,
-                          initialStatus: status,
-                          otherUserId: '',
+            return Column(
+              children: [
+                _filterChips(),
+                Expanded(
+                  child: visible.isEmpty
+                      ? _emptyState()
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 4),
+                          itemBuilder: (context, i) =>
+                              _bookingTile(visible[i]),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ── Filter chips row ─────────────────────────────────────────────
+  Widget _filterChips() {
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: _StatusFilter.values.map((f) {
+          final isSelected = _selected == f;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(f.label),
+              selected: isSelected,
+              onSelected: (_) => setState(() => _selected = f),
+              backgroundColor: Colors.white,
+              selectedColor: AppColors.primaryGold.withOpacity(0.25),
+              labelStyle: TextStyle(
+                color: isSelected ? AppColors.darkBrown : AppColors.accentBrown,
+                fontWeight:
+                    isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              shape: StadiumBorder(
+                side: BorderSide(
+                  color: isSelected
+                      ? AppColors.primaryGold
+                      : AppColors.accentBrown.withOpacity(0.3),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── Single booking row ───────────────────────────────────────────
+  Widget _bookingTile(Map<String, dynamic> booking) {
+    final gig = (booking['gigs'] ?? {}) as Map<String, dynamic>;
+    final status = (booking['status'] ?? 'pending').toString();
+    final venue = (gig['location'] ?? 'Unknown venue').toString();
+    final title = (gig['title'] ?? 'Untitled gig').toString();
+    final dateStr = (gig['date'] ?? '').toString();
+    final formattedDate = _prettyDate(dateStr);
+    final avatar = (gig['image_url'] ?? '').toString();
+
+    final (icon, color) = _statusVisuals(status);
+
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: AppColors.accentBrown.withOpacity(0.15)),
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: CircleAvatar(
+          radius: 22,
+          backgroundColor: color.withOpacity(0.15),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(title, style: AppFonts.textTheme.bodyLarge),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined,
+                      size: 14, color: AppColors.accentBrown),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(venue,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppFonts.textTheme.bodyMedium),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 14, color: AppColors.accentBrown),
+                  const SizedBox(width: 4),
+                  Text(formattedDate, style: AppFonts.textTheme.bodyMedium),
+                  const SizedBox(width: 10),
+                  _statusPill(status, color),
+                ],
+              ),
+            ],
+          ),
+        ),
+        trailing: const Icon(Icons.chat_bubble_outline,
+            color: AppColors.accentBrown),
+        onTap: () async {
+          // Capture-before-await: grab Navigator now so the post-await
+          // call doesn't need `context` and the analyzer is satisfied.
+          final navigator = Navigator.of(context);
+          final repo = BookingRepository();
+          final bookingId = booking['id'].toString();
+          final chatId = await repo.getChatIdForBooking(bookingId);
+          if (!mounted) return;
+          navigator.push(
+            MaterialPageRoute(
+              builder: (_) => ChatPage(
+                chatId: chatId,
+                bookingId: bookingId,
+                name: venue,
+                avatar: avatar,
+                initialStatus: status,
+                otherUserId: '',
+              ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Tiny status pill used inside the subtitle row.
+  Widget _statusPill(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  /// Maps a status string to (icon, color). Returning a record is the
+  /// modern Dart way to return two values without making a class.
+  (IconData, Color) _statusVisuals(String status) {
+    switch (status) {
+      case 'confirmed':
+        return (Icons.check_circle, const Color(0xFF1D9E75));
+      case 'declined':
+      case 'cancelled':
+        return (Icons.cancel, const Color(0xFFE24B4A));
+      default:
+        return (Icons.hourglass_bottom, const Color(0xFFEF9F27));
+    }
+  }
+
+  /// Format an ISO date string like "2026-11-25T02:43:17" into "25 Nov 2026".
+  /// We use month abbreviations rather than numeric to avoid the classic
+  /// "is that DD/MM or MM/DD?" confusion that hits any global app.
+  String _prettyDate(String iso) {
+    if (iso.isEmpty) return '—';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${dt.day.toString().padLeft(2, '0')} '
+        '${months[dt.month - 1]} ${dt.year}';
+  }
+
+  Widget _emptyState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+      children: [
+        const Center(
+          child: Icon(Icons.event_busy,
+              size: 64, color: AppColors.accentBrown),
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            _selected == _StatusFilter.all
+                ? 'No bookings yet'
+                : 'No ${_selected.label.toLowerCase()} bookings',
+            style: AppFonts.textTheme.headlineMedium,
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            _selected == _StatusFilter.all
+                ? 'Browse gigs and tap "Book Now" — your requests will land here.'
+                : 'Try a different filter to see other bookings.',
+            textAlign: TextAlign.center,
+            style: AppFonts.textTheme.bodyMedium
+                ?.copyWith(color: AppColors.accentBrown),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _errorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline,
+                size: 36, color: AppColors.accentBrown),
+            const SizedBox(height: 8),
+            Text('Could not load bookings',
+                style: AppFonts.textTheme.bodyLarge),
+            const SizedBox(height: 4),
+            Text(message,
+                style: AppFonts.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.accentBrown,
+                ),
+                textAlign: TextAlign.center),
+          ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../../../core/services/favorites_service.dart';
 
 import '../../../models/gig.dart';
 
@@ -84,9 +85,22 @@ class GigDetailPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.favorite_border, color: AppColors.darkBrown),
-            onPressed: () {},
+          // Reactive heart wired to FavoritesService.
+          // ValueListenableBuilder rebuilds this single icon whenever the
+          // favorites set changes — fast and isolated to this widget.
+          ValueListenableBuilder<Set<String>>(
+            valueListenable: FavoritesService.instance.ids,
+            builder: (_, ids, __) {
+              final isFav = ids.contains(gig.id);
+              return IconButton(
+                icon: Icon(
+                  isFav ? Icons.favorite : Icons.favorite_border,
+                  color: isFav ? Colors.red : AppColors.darkBrown,
+                ),
+                tooltip: isFav ? 'Remove from favorites' : 'Add to favorites',
+                onPressed: () => FavoritesService.instance.toggle(gig.id),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.darkBrown),
@@ -212,8 +226,11 @@ class GigDetailPage extends StatelessWidget {
                     _infoTile(
                       Icons.payments,
                       "Payment",
+                      // Currency is THB. We format with no decimals because
+                      // a gig payment of 3000.0 displays cleaner as "฿3,000"
+                      // than "฿3000.0". toStringAsFixed(0) drops decimals.
                       gig.payment != null
-                          ? "\$${gig.payment}"
+                          ? "฿${gig.payment!.toStringAsFixed(0)}"
                           : "Not specified",
                     ),
                   ],

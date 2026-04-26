@@ -7,7 +7,13 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Fine = exact GPS. Coarse = approximate (cell tower / wifi). -->
+    <!-- On Android 12+ the user can choose to grant only COARSE. If only -->
+    <!-- FINE is declared, that choice is hidden and many users just deny. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- INTERNET is needed by Supabase / OneSignal / Google Maps API calls. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
     android:label="jamupproject"

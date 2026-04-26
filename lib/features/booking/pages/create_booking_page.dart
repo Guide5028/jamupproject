@@ -15,7 +15,8 @@ class CreateBookingPage extends StatefulWidget {
 }
 
 class _CreateBookingPageState extends State<CreateBookingPage> {
-  final _messageCtrl = TextEditingController();
+  // (Removed `_messageCtrl` — it was declared but never read or written
+  // to. If we add a "Note to venue" textfield later, re-add it then.)
   DateTime? selectedDate;
 
   final _controller = BookingController(BookingRepository());
@@ -55,13 +56,17 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
         width: double.infinity,
         child: ElevatedButton(
           onPressed: () async {
+            // Same capture-before-await pattern as elsewhere — grab the
+            // Navigator now so we don't touch `context` after the gap.
+            final navigator = Navigator.of(context);
             await _controller.createBookingForGig(
               gigId: widget.gig.id,
               venueId: widget.gig.venueId,
               startTime: widget.gig.date,
               endTime: widget.gig.date.add(const Duration(hours: 2)),
             );
-            Navigator.pop(context);
+            if (!mounted) return;
+            navigator.pop();
           },
           child: const Text("Send Booking Request"),
         ),

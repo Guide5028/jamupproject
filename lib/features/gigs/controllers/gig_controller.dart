@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:flutter/material.dart';
+// foundation.dart already provides setEquals AND ChangeNotifier — no need
+// to also import material.dart in a pure controller. Leaner imports = faster
+// IDE indexing and less coupling between layers.
+import 'package:flutter/foundation.dart';
 
 import '../../../models/gig.dart';
-
 import '../data/gig_repository.dart';
-
-import '../../../core/services/location_service.dart';
 
 enum GigSort {
   dateAsc,
@@ -52,6 +52,24 @@ class GigController extends ChangeNotifier {
 
   /// Genre filter
   Set<String> selectedGenres = {};
+
+  /// Type filter (maps to gig.roleNeeded — Singer, Guitarist, DJ, Band, ...)
+  /// Why "Type" instead of "Role"? The pill in the UI says "Type" because
+  /// from a venue's discovery perspective ("what kind of musician is this
+  /// gig for?") that word reads more naturally to non-engineers.
+  Set<String> selectedTypes = {};
+
+  /// Location filter — free-text match against gig.location, case insensitive.
+  /// We don't switch to lat/lng-based location filtering here because the
+  /// UI presents bucket choices ("Bangkok" / "Chiang Mai"), and string
+  /// matching is correct for that bucket model. Geo filtering is a
+  /// separate feature ("Nearby"), already handled via the RPC.
+  Set<String> selectedLocations = {};
+
+  /// Price-bucket filter — strings like "<3000", "3000-10000", "10000+".
+  /// Stored as the same labels the bottom sheet shows so we don't have
+  /// to translate twice. Parsed on-the-fly inside `filtered`.
+  Set<String> selectedPrices = {};
 
   /// 🔎 Search
   String searchQuery = "";
@@ -157,6 +175,16 @@ class GigController extends ChangeNotifier {
   }
 
   /// ✅ Filter + Search + Sort combined
+  ///
+  /// Order of filtering is deliberate:
+  ///   1) genre  → smallest-first set; cheapest predicate
+  ///   2) type   (role_needed)
+  ///   3) location (string contains)
+  ///   4) price  (bucket parse)
+  ///   5) free-text search across title/location/genres
+  ///   6) sort
+  /// We chain `.where()` so each filter shrinks the iterable lazily —
+  /// no intermediate List allocation, no wasted work.
   List<Gig> get filtered {
     final q = searchQuery.trim().toLowerCase();
 
@@ -173,7 +201,36 @@ class GigController extends ChangeNotifier {
           ));
     }
 
-    // 2) Search filter
+    // 2) Type filter — match against roleNeeded. "Any" or "" never
+    //    survives the active-filter check, so empty selectedTypes is fine.
+    if (selectedTypes.isNotEmpty) {
+      list = list.where((g) {
+        final r = g.roleNeeded.toLowerCase();
+        return selectedTypes.any((t) => r == t.toLowerCase());
+      });
+    }
+
+    // 3) Location filter — case-insensitive contains. A user picking
+    //    "Bangkok" should also match "Saxophone Pub, Bangkok" etc.
+    if (selectedLocations.isNotEmpty) {
+      list = list.where((g) {
+        final loc = g.location.toLowerCase();
+        return selectedLocations.any((s) => loc.contains(s.toLowerCase()));
+      });
+    }
+
+    // 4) Price filter — bucket logic. We use `payment` (what the venue
+    //    pays the musician) since that's the meaningful number for both
+    //    sides of the marketplace. Null payment is treated as "skip".
+    if (selectedPrices.isNotEmpty) {
+      list = list.where((g) {
+        final p = g.payment;
+        if (p == null) return false;
+        return selectedPrices.any((bucket) => _matchesPriceBucket(p, bucket));
+      });
+    }
+
+    // 5) Search filter
     if (q.isNotEmpty) {
       list = list.where((g) {
         final title = g.title.toLowerCase();
@@ -183,7 +240,7 @@ class GigController extends ChangeNotifier {
       });
     }
 
-    // 3) Sort
+    // 6) Sort
     final out = list.toList();
 
     int cmpStr(String a, String b) =>
@@ -233,8 +290,61 @@ class GigController extends ChangeNotifier {
   }
 
   void setGenreFilters(Set<String> genres) {
+    // IMPORTANT: only notify listeners if the value actually changed.
+    // Without this guard, every rebuild that calls this function would
+    // fire notifyListeners() → trigger another rebuild → infinite loop.
+    // setEquals() comes from flutter/foundation and checks Set equality
+    // (regular == on Set returns false even if both sets contain the
+    // same elements, because == on collections compares references).
+    if (setEquals(selectedGenres, genres)) return;
+
     selectedGenres = {...genres};
     notifyListeners();
+  }
+
+  void setTypeFilters(Set<String> types) {
+    if (setEquals(selectedTypes, types)) return;
+    selectedTypes = {...types};
+    notifyListeners();
+  }
+
+  void setLocationFilters(Set<String> locations) {
+    if (setEquals(selectedLocations, locations)) return;
+    selectedLocations = {...locations};
+    notifyListeners();
+  }
+
+  void setPriceFilters(Set<String> prices) {
+    if (setEquals(selectedPrices, prices)) return;
+    selectedPrices = {...prices};
+    notifyListeners();
+  }
+
+  /// Parses a UI bucket label like "<฿3000" or "฿3000-฿10000" or "฿10000+"
+  /// and tests whether `price` falls inside it. Done as a pure function
+  /// so the rules are visible in one place — change the labels in the
+  /// bottom sheet, and the parser keeps working.
+  bool _matchesPriceBucket(double price, String bucket) {
+    final clean = bucket.replaceAll('฿', '').replaceAll(',', '').trim();
+    if (clean.startsWith('<')) {
+      final upper = double.tryParse(clean.substring(1).trim());
+      return upper != null && price < upper;
+    }
+    if (clean.endsWith('+')) {
+      final lower =
+          double.tryParse(clean.substring(0, clean.length - 1).trim());
+      return lower != null && price >= lower;
+    }
+    if (clean.contains('-')) {
+      final parts = clean.split('-');
+      final lower = double.tryParse(parts[0].trim());
+      final upper = double.tryParse(parts[1].trim());
+      return lower != null &&
+          upper != null &&
+          price >= lower &&
+          price <= upper;
+    }
+    return false;
   }
 
   void setNearbyRadius(double km) {
