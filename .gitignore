@@ -52,3 +52,6 @@ devtools_options.yaml
 # Supabase local
 supabase/.temp
 supabase/.branches
+*.pdf
+*.docx
+supabase.exe
