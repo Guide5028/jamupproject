@@ -2,7 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../models/musician.dart';
 
 class MusicianRepository {
-  final supabase = Supabase.instance.client;
+  SupabaseClient get supabase => Supabase.instance.client;
 
   Future<List<Musician>> fetchAll({String? filter}) async {
     // Get all musicians from users table

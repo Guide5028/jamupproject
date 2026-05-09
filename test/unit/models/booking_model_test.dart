@@ -45,10 +45,10 @@ void main() {
       expect(b.status, 'confirmed');
     });
 
-    test('toJson produces ISO-8601 timestamps', () {
+    test('toJson produces ISO-8601 timestamps with snake_case keys', () {
       final json = _sample().toJson();
-      expect(json['createdAt'], '2026-04-25T10:30:00.000Z');
-      expect(json['updatedAt'], '2026-04-25T11:45:00.000Z');
+      expect(json['created_at'], '2026-04-25T10:30:00.000Z');
+      expect(json['updated_at'], '2026-04-25T11:45:00.000Z');
     });
 
     test('fromJson + toJson round-trips cleanly', () {

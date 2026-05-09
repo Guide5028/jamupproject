@@ -15,6 +15,7 @@ class ChatPage extends StatefulWidget {
   final String? chatId;
   final String? bookingId;
   final String otherUserId;
+  final bool isVenue;
 
   const ChatPage({
     super.key,
@@ -24,6 +25,7 @@ class ChatPage extends StatefulWidget {
     this.chatId,
     this.bookingId,
     required this.otherUserId,
+    this.isVenue = false,
   });
 
   @override
@@ -39,10 +41,20 @@ class _ChatPageState extends State<ChatPage> {
 
   late String bookingStatus;
   List<Map<String, dynamic>> _messages = [];
+  String _receiverId = ''; // resolved at init — used for notifications
 
   StreamSubscription? _messageSubscription;
 
   String? get currentUserId => _supabase.auth.currentUser?.id;
+
+  /// Returns the role of the currently logged-in user.
+  /// We read it straight from Supabase auth metadata — same place it was
+  /// written during sign-up (see auth_service.dart line 40: 'role': role).
+  /// No extra network call needed; the metadata is already in memory.
+  String get _currentUserRole =>
+      (_supabase.auth.currentUser?.userMetadata?['role'] ?? '')
+          .toString()
+          .toLowerCase();
 
   // ==============================
   // INIT
@@ -52,10 +64,16 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     bookingStatus = widget.initialStatus;
+    _receiverId = widget.otherUserId;
 
     if (widget.chatId != null) {
       _markMessagesAsRead(); // 🔥 mark once when entering
       _startMessageListener();
+      // If the caller didn't supply the other user's ID, resolve it from
+      // the booking so notifications have a valid receiverId.
+      if (_receiverId.isEmpty && widget.bookingId != null) {
+        _resolveReceiverId();
+      }
     } else {
       _loadDemoMessages();
     }
@@ -82,6 +100,26 @@ class _ChatPageState extends State<ChatPage> {
         .eq('chat_id', widget.chatId!)
         .neq('sender_id', user.id)
         .isFilter('read_at', null);
+  }
+
+  /// Looks up musician_id / venue_id from the booking and picks
+  /// whichever one is NOT the current user. Called once on init when
+  /// the caller didn't pass otherUserId.
+  Future<void> _resolveReceiverId() async {
+    try {
+      final booking = await _supabase
+          .from('bookings')
+          .select('musician_id, venue_id')
+          .eq('id', widget.bookingId!)
+          .single();
+
+      final myId = currentUserId;
+      _receiverId = booking['musician_id'].toString() == myId
+          ? booking['venue_id'].toString()
+          : booking['musician_id'].toString();
+    } catch (_) {
+      // Non-fatal — message still sends, notification just won't fire.
+    }
   }
 
   void _loadDemoMessages() {
@@ -174,26 +212,32 @@ class _ChatPageState extends State<ChatPage> {
       //   2) sends the OneSignal push banner
       // We pass receiverId directly — ChatPage already knows who the
       // other participant is via widget.otherUserId.
-      await _supabase.functions.invoke(
-        'send-notification',
-        body: {
-          'receiverId': widget.otherUserId,
-          'title': 'New message from ${widget.name}',
-          'body': text,
-          'type': 'message',
-          // `data.chatId` lets the notification tap handler navigate
-          // straight to this chat in the future. Not used yet, but
-          // free future-proofing.
-          'data': {
-            'chatId': widget.chatId,
-            'bookingId': widget.bookingId,
-          },
-        },
-      );
+      if (_receiverId.isNotEmpty) {
+        final senderName =
+            (user.userMetadata?['name'] as String?)?.isNotEmpty == true
+                ? user.userMetadata!['name'] as String
+                : user.email ?? 'Someone';
 
-      print("MESSAGE SENT SUCCESS + NOTIFICATION TRIGGERED");
+        await _supabase.functions.invoke(
+          'send-notification',
+          body: {
+            'receiverId': _receiverId,
+            'title': 'New message from $senderName',
+            'body': text,
+            'type': 'message',
+            'data': {
+              'chatId': widget.chatId,
+              'bookingId': widget.bookingId,
+            },
+          },
+        );
+      }
     } catch (e) {
-      print("MESSAGE ERROR: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: $e')),
+        );
+      }
     }
   }
 
@@ -402,7 +446,15 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildBookingActions() {
     if (widget.bookingId == null) return const SizedBox();
 
+    if (!widget.isVenue) return const SizedBox();
+
     if (bookingStatus != "pending") return const SizedBox();
+
+    // ✅ ROLE GUARD — only the venue owner can accept or decline a booking.
+    // A musician sent this request; they should not see these action buttons.
+    // This mirrors the same check in booking_detail_page.dart (line 96):
+    //   if (status == 'pending' && role == 'venue')
+    if (_currentUserRole != 'venue') return const SizedBox();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -452,7 +504,12 @@ class _ChatPageState extends State<ChatPage> {
 
   String _formatTime(String? timestamp) {
     if (timestamp == null) return '';
-    final date = DateTime.parse(timestamp);
-    return "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+    try {
+      final date = DateTime.parse(timestamp)
+          .toLocal(); // also convert to local timezone!
+      return "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+    } catch (_) {
+      return '';
+    }
   }
 }

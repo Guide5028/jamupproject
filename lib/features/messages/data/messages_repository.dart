@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MessagesRepository {
-  final supabase = Supabase.instance.client;
+  SupabaseClient get supabase => Supabase.instance.client;
 
   Future<List<Map<String, dynamic>>> fetchConversations() async {
   final user = supabase.auth.currentUser;
@@ -47,7 +47,8 @@ class MessagesRepository {
         .from('users')
         .select('name, avatar_url')
         .eq('id', otherId)
-        .single();
+        .maybeSingle();
+    if (otherUser == null) continue;
 
     // 4️⃣ Get latest message
     final lastMessageRes = await supabase
@@ -84,6 +85,7 @@ class MessagesRepository {
       'last_message': lastMessage,
       'last_message_time': lastTime,
       'unread_count': unreadCount,
+      'is_musician': isMeMusician,
     });
   }
 

@@ -28,6 +28,7 @@ class GigRepository {
     required double longitude,
     String imageUrl = '',
     double? payment,
+    String? paymentUnit,
     String? roleNeeded,
     int slots = 1,
     DateTime? startTime,
@@ -60,6 +61,7 @@ class GigRepository {
       'latitude': latitude,
       'longitude': longitude,
       'payment': payment,
+      'payment_unit': paymentUnit ?? 'fixed',
       'role_needed': roleNeeded,
       'slots': slots,
       if (startTime != null) 'start_time': startTime.toIso8601String(),
@@ -81,6 +83,7 @@ class GigRepository {
     double? latitude,
     double? longitude,
     double? payment,
+    String? paymentUnit,
     String? roleNeeded,
     int? slots,
     DateTime? startTime,
@@ -113,6 +116,7 @@ class GigRepository {
     if (latitude != null) payload['latitude'] = latitude;
     if (longitude != null) payload['longitude'] = longitude;
     if (payment != null) payload['payment'] = payment;
+    if (paymentUnit != null) payload['payment_unit'] = paymentUnit;
     if (roleNeeded != null) payload['role_needed'] = roleNeeded;
     if (slots != null) payload['slots'] = slots;
     if (startTime != null) payload['start_time'] = startTime.toIso8601String();

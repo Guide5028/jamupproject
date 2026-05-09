@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jamup_app/features/messages/pages/chat_page.dart';
+import 'package:jamup_app/features/reviews/pages/review_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../booking/data/booking_repository.dart';
@@ -22,6 +23,9 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   bool _loading = true;
   bool _actionLoading = false;
   String? role;
+  String? _loadError;
+  bool _canReview = false;
+  bool _alreadyReviewed = false;
 
   @override
   void initState() {
@@ -30,15 +34,24 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   }
 
   Future<void> _loadBooking() async {
-    final user = supabase.auth.currentUser!;
-    // NOTE: review-eligibility flags will live here once the Review feature
-    // is wired up — see the commented-out "Leave Review" button below.
-    final me =
-        await supabase.from('users').select('role').eq('id', user.id).single();
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
 
-    role = me['role'];
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) throw Exception("Not logged in");
 
-    final data = await supabase.from('bookings').select('''
+      final me = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+      role = me['role'];
+
+      final data = await supabase.from('bookings').select('''
   id,
   status,
   start_time,
@@ -50,11 +63,25 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
   gigs(title, location)
 ''').eq('id', widget.bookingId).single();
 
-    setState(() {
-      booking = data;
-      _loading = false;
-      
-    });
+      final status = data['status'] as String? ?? '';
+      final endTime = DateTime.tryParse(data['end_time'] ?? '') ?? DateTime.now();
+      final canReview = status == 'confirmed' && endTime.isBefore(DateTime.now());
+      final alreadyReviewed = canReview
+          ? await _repo.hasReviewed(bookingId: widget.bookingId)
+          : false;
+
+      setState(() {
+        booking = data;
+        _canReview = canReview;
+        _alreadyReviewed = alreadyReviewed;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _loadError = e.toString();
+      });
+    }
   }
 
   @override
@@ -62,6 +89,28 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Booking Details'), backgroundColor: AppColors.background),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 32),
+              const SizedBox(height: 8),
+              Text(_loadError!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _loadBooking,
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGold),
+                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -152,7 +201,8 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       chatId: chatId,
                       name: '',
                       avatar: '',
-                      otherUserId: 'venue.userId',
+                      otherUserId: '',
+                      isVenue: role == 'venue',
                     ),
                   ),
                 );
@@ -175,23 +225,56 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       )
                     : const Text('Cancel Booking'),
               ),
-            //             if (_canReview && !_alreadyReviewed)
-            // ElevatedButton(
-            //   onPressed: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(
-            //         builder: (_) => ReviewPage(
-            //           bookingId: booking!['id'],
-            //           reviewedUserId: role == 'venue'
-            //               ? booking!['musician_id']
-            //               : booking!['venue_id'],
-            //         ),
-            //       ),
-            //     );
-            //   },
-            //   child: const Text('Leave Review'),
-            // ),
+            if (_canReview && !_alreadyReviewed)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.star_outline, color: Colors.white),
+                label: const Text(
+                  'Leave a Review',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGold,
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () async {
+                  final reviewedUserId = role == 'venue'
+                      ? booking!['musician_id'] as String
+                      : booking!['venue_id'] as String;
+                  final reviewedName = role == 'venue'
+                      ? (booking!['musicians']?['name'] as String? ?? 'Musician')
+                      : (booking!['venues']?['name'] as String? ?? 'Venue');
+
+                  final submitted = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReviewPage(
+                        bookingId: booking!['id'] as String,
+                        reviewedUserId: reviewedUserId,
+                        reviewedUserName: reviewedName,
+                      ),
+                    ),
+                  );
+                  if (submitted == true && mounted) {
+                    setState(() => _alreadyReviewed = true);
+                  }
+                },
+              ),
+            if (_canReview && _alreadyReviewed)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        color: Colors.green, size: 18),
+                    const SizedBox(width: 6),
+                    Text('You already reviewed this booking',
+                        style: TextStyle(
+                            color: Colors.green.shade700, fontSize: 13)),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

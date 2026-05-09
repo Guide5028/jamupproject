@@ -20,28 +20,28 @@ class Booking {
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
-    return Booking(
-      id: json["id"],
-      gigId: json["gigId"],
-      musicianId: json["musicianId"],
-      venueId: json["venueId"],
-      status: json["status"],
-      createdAt: DateTime.parse(json["createdAt"]),
-      updatedAt: DateTime.parse(json["updatedAt"]),
-      chatId: json["chatId"],
-    );
-  }
+  return Booking(
+    id: json["id"].toString(),
+    gigId: json["gig_id"].toString(),
+    musicianId: json["musician_id"].toString(),
+    venueId: json["venue_id"].toString(),
+    status: json["status"] ?? "pending",
+    createdAt: DateTime.parse(json["created_at"]),
+    updatedAt: DateTime.parse(json["updated_at"]),
+    chatId: json["chat_id"]?.toString() ?? '',
+  );
+}
 
   Map<String, dynamic> toJson() {
     return {
       "id": id,
-      "gigId": gigId,
-      "musicianId": musicianId,
-      "venueId": venueId,
+      "gig_id": gigId,
+      "musician_id": musicianId,
+      "venue_id": venueId,
       "status": status,
-      "createdAt": createdAt.toIso8601String(),
-      "updatedAt": updatedAt.toIso8601String(),
-      "chatId": chatId,
+      "created_at": createdAt.toIso8601String(),
+      "updated_at": updatedAt.toIso8601String(),
+      "chat_id": chatId,
     };
   }
 }

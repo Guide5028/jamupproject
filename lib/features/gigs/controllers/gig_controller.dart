@@ -9,8 +9,6 @@ import '../../../models/gig.dart';
 import '../data/gig_repository.dart';
 
 enum GigSort {
-  dateAsc,
-  dateDesc,
   newest,
   oldest,
   titleAz,
@@ -23,8 +21,8 @@ enum GigSort {
 class GigController extends ChangeNotifier {
   final GigRepository repo;
   GigController(this.repo);
-
-  GigSort sort = GigSort.dateAsc;
+  
+  GigSort sort = GigSort.newest;
 
   void setSort(GigSort v) {
     sort = v;
@@ -247,12 +245,7 @@ class GigController extends ChangeNotifier {
         a.toLowerCase().compareTo(b.toLowerCase());
 
     switch (sort) {
-      case GigSort.dateAsc:
-        out.sort((a, b) => a.date.compareTo(b.date));
-        break;
-      case GigSort.dateDesc:
-        out.sort((a, b) => b.date.compareTo(a.date));
-        break;
+      
       case GigSort.newest:
         out.sort((a, b) => b.date.compareTo(a.date));
         break;
@@ -349,11 +342,11 @@ class GigController extends ChangeNotifier {
 
   void setNearbyRadius(double km) {
     radiusKm = km;
-    // Reload with new radius using saved coordinates
     if (userLat != null && userLng != null) {
       loadNearby(lat: userLat, lng: userLng, radiusKm: km);
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   /// 🔎 Debounced search input

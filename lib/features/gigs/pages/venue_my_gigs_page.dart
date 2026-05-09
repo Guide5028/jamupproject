@@ -23,7 +23,10 @@ class VenueMyGigsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
+    User? user;
+    try {
+      user = Supabase.instance.client.auth.currentUser;
+    } catch (_) {}
 
     if (user == null) {
       return Scaffold(

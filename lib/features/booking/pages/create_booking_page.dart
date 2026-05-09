@@ -15,8 +15,6 @@ class CreateBookingPage extends StatefulWidget {
 }
 
 class _CreateBookingPageState extends State<CreateBookingPage> {
-  // (Removed `_messageCtrl` — it was declared but never read or written
-  // to. If we add a "Note to venue" textfield later, re-add it then.)
   DateTime? selectedDate;
 
   final _controller = BookingController(BookingRepository());

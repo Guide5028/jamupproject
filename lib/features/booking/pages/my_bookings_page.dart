@@ -53,8 +53,11 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
-    final musicianId = user?.id ?? '';
+    String musicianId = '';
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      musicianId = user?.id ?? '';
+    } catch (_) {}
 
     return ChangeNotifierProvider(
       create: (_) => BookingController(BookingRepository())
@@ -224,6 +227,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 avatar: avatar,
                 initialStatus: status,
                 otherUserId: '',
+                isVenue: false,
               ),
             ),
           );

@@ -12,6 +12,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,15 +24,16 @@ import '../data/gig_repository.dart';
 
 class EditGigPage extends StatefulWidget {
   final Gig gig;
-  const EditGigPage({super.key, required this.gig});
+  final GigRepository? repo;
+  const EditGigPage({super.key, required this.gig, this.repo});
 
   @override
   State<EditGigPage> createState() => _EditGigPageState();
 }
 
 class _EditGigPageState extends State<EditGigPage> {
-  final _repo = GigRepository();
-  final _supabase = Supabase.instance.client;
+  late final GigRepository _repo;
+  SupabaseClient get _supabase => Supabase.instance.client;
   final _picker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
 
@@ -47,6 +49,7 @@ class _EditGigPageState extends State<EditGigPage> {
   String? _existingImageUrl; // URL already stored on the gig row
   File? _newCoverImage;      // new file picked this session
   String _roleNeeded = 'Any';
+  String _paymentUnit = 'fixed';
 
   static const _allGenres = <String>[
     'Jazz', 'Rock', 'Pop', 'EDM', 'Hip-Hop',
@@ -60,6 +63,7 @@ class _EditGigPageState extends State<EditGigPage> {
   @override
   void initState() {
     super.initState();
+    _repo = widget.repo ?? GigRepository();
     final g = widget.gig;
 
     _title    = TextEditingController(text: g.title);
@@ -75,6 +79,7 @@ class _EditGigPageState extends State<EditGigPage> {
     _existingImageUrl = g.imageUrl.isNotEmpty ? g.imageUrl : null;
     _selectedGenres.addAll(g.genres);
     _roleNeeded      = g.roleNeeded.isNotEmpty ? g.roleNeeded : 'Any';
+    _paymentUnit     = g.paymentUnit ?? 'fixed';
   }
 
   @override
@@ -136,6 +141,22 @@ class _EditGigPageState extends State<EditGigPage> {
     setState(() => _saving = true);
 
     try {
+      final newLocation = _location.text.trim();
+      double? newLat = _latitude;
+      double? newLng = _longitude;
+
+      if (newLocation != widget.gig.location) {
+        try {
+          final results = await locationFromAddress(newLocation);
+          if (results.isNotEmpty) {
+            newLat = results.first.latitude;
+            newLng = results.first.longitude;
+          }
+        } catch (_) {
+          // geocoding failed — keep original coordinates
+        }
+      }
+
       final newUrl = await _uploadNewCoverIfPicked();
       final finalImageUrl = newUrl ?? _existingImageUrl ?? '';
 
@@ -144,12 +165,13 @@ class _EditGigPageState extends State<EditGigPage> {
         title: _title.text.trim(),
         description: _desc.text.trim(),
         date: _date!,
-        location: _location.text.trim(),
+        location: newLocation,
         genres: _selectedGenres.toList(),
         imageUrl: finalImageUrl,
-        latitude: _latitude,
-        longitude: _longitude,
+        latitude: newLat,
+        longitude: newLng,
         payment: double.tryParse(_payment.text.trim()),
+        paymentUnit: _paymentUnit,
         roleNeeded: _roleNeeded == 'Any' ? null : _roleNeeded,
         slots: int.tryParse(_slots.text.trim()),
       );
@@ -368,14 +390,17 @@ class _EditGigPageState extends State<EditGigPage> {
                   controller: _payment,
                   keyboardType: const TextInputType.numberWithOptions(
                       decimal: true),
-                  decoration: _dec('Payment (฿)',
+                  decoration: _dec('Pay for musician (฿)',
                       prefix: const Icon(Icons.payments_outlined)),
                 ),
+                const SizedBox(height: 10),
+                _buildPaymentUnitToggle(),
 
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
+                    key: const Key('save_gig_button'),
                     onPressed: (_saving || _deleting) ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryGold,
@@ -406,6 +431,52 @@ class _EditGigPageState extends State<EditGigPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPaymentUnitToggle() {
+    const units = [
+      ('fixed',    'Fixed total'),
+      ('per_hour', 'Per hour'),
+      ('per_day',  'Per day'),
+    ];
+    return Row(
+      children: units.map((u) {
+        final isSelected = _paymentUnit == u.$1;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentUnit = u.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primaryGold
+                      : AppColors.primaryGold.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primaryGold
+                        : AppColors.accentBrown.withOpacity(0.3),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    u.$2,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.white : AppColors.darkBrown,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

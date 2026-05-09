@@ -4,7 +4,8 @@ import '../../../core/constants/app_fonts.dart';
 import '../../../core/services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final AuthService? auth;
+  const RegisterPage({super.key, this.auth});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -18,7 +19,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
 
   String role = "musician"; // "musician" | "venue"
-  final _auth = AuthService();
+  late final AuthService _auth = widget.auth ?? AuthService();
   bool loading = false;
   bool _obscure = true;
 

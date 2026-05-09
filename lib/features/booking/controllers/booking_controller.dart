@@ -15,6 +15,7 @@ class BookingController extends ChangeNotifier {
     required String role,
   }) async {
     loading = true;
+    error = null;
     notifyListeners();
 
     try {

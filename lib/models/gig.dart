@@ -11,11 +11,13 @@ class Gig {
   final double? latitude;
   final double? longitude;
   double? distance;
-  final double price;
 
   final String roleNeeded;
   final int slots;
   final double? payment;
+  /// How the payment figure is measured. Values: 'per_hour', 'per_day', 'fixed'.
+  /// Null means fixed (legacy rows before the column was added).
+  final String? paymentUnit;
   final int applicants;
 
   final DateTime? createdAt;
@@ -31,11 +33,11 @@ class Gig {
     required this.musicianId,
     required this.latitude,
     required this.longitude,
-    required this.price,
     this.distance,
     this.roleNeeded = '',
     this.slots = 0, 
     this.payment,
+    this.paymentUnit,
     this.applicants = 0,
     this.createdAt,
   });
@@ -68,11 +70,11 @@ class Gig {
       // Without this fix, the "X km away" badge was silently always null.
       distance: (json['distance_km'] as num?)?.toDouble()
           ?? (json['distance'] as num?)?.toDouble(),
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
 
       roleNeeded: json['role_needed'] ?? '',
       slots: (json['slots'] as num?)?.toInt() ?? 0,
       payment: (json['payment'] as num?)?.toDouble(),
+      paymentUnit: json['payment_unit'] as String?,
       applicants: (json['applicants'] as num?)?.toInt() ?? 0,
       
       createdAt: json['created_at'] != null

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/pay_label.dart';
 import '../../../core/widgets/favorite_heart_button.dart';
 import '../../../models/gig.dart';
 import '../pages/gig_detail_page.dart';
@@ -200,6 +201,24 @@ class GigCard extends StatelessWidget {
                           ),
                         ],
                       ),
+
+                      const SizedBox(height: 4),
+
+                      /// Musician pay
+                      Row(
+                        children: [
+                          const Icon(Icons.payments_outlined,
+                              size: 12, color: Colors.white70),
+                          const SizedBox(width: 4),
+                          Text(
+                            payLabel(gig.payment, gig.paymentUnit),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -214,4 +233,5 @@ class GigCard extends StatelessWidget {
     final dd = d.day.toString().padLeft(2, '0');
     return "${d.year}-$mm-$dd";
   }
+
 }

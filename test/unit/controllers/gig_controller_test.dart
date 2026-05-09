@@ -63,7 +63,6 @@ Gig _gig({
     musicianId: '',
     latitude: 18.0,
     longitude: 99.0,
-    price: 0,
     payment: payment,
     roleNeeded: roleNeeded,
   );
@@ -213,7 +212,7 @@ void main() {
           _gig(id: 'a', date: earlier),
         ];
       final ctrl = GigController(repo)..gigs = repo.seedGigs;
-      ctrl.setSort(GigSort.dateAsc);
+      ctrl.setSort(GigSort.oldest);
       expect(ctrl.filtered.map((g) => g.id).toList(), ['a', 'b']);
     });
 
@@ -224,7 +223,7 @@ void main() {
           _gig(id: 'b', date: later),
         ];
       final ctrl = GigController(repo)..gigs = repo.seedGigs;
-      ctrl.setSort(GigSort.dateDesc);
+      ctrl.setSort(GigSort.newest);
       expect(ctrl.filtered.map((g) => g.id).toList(), ['b', 'a']);
     });
 

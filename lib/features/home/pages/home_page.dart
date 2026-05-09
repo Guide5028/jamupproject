@@ -5,6 +5,7 @@ import '../../../core/services/location_service.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../../../core/utils/pay_label.dart';
 
 import '../../../models/gig.dart';
 
@@ -132,43 +133,30 @@ class _HomePageState extends State<HomePage> {
 
   List<Gig> filterGigs(List<Gig> gigs) {
     return gigs.where((g) {
-      // 1) Genre — already worked. Case-insensitive any-match.
       final matchesGenre = filters.genres.isEmpty ||
           filters.genres.any((genre) => g.genres
               .map((e) => e.toLowerCase())
               .contains(genre.toLowerCase()));
 
-      // 2) Type (role_needed) — the bottom sheet now lists the same role
-      //    options as the Create-Gig form, so values should match exactly.
-      final matchesType = filters.types.isEmpty ||
-          filters.types
-              .map((t) => t.toLowerCase())
-              .contains(g.roleNeeded.toLowerCase());
-
-      // 3) Location — case-insensitive contains. Picking "Bangkok"
-      //    matches "Saxophone Pub, Bangkok" or just "Bangkok".
       final matchesLocation = filters.locations.isEmpty ||
-          filters.locations
-              .any((s) => g.location.toLowerCase().contains(s.toLowerCase()));
+          filters.locations.any(
+              (loc) => g.location.toLowerCase().contains(loc.toLowerCase()));
 
-      // 4) Price bucket — only run if `payment` is set. Gigs without a
-      //    payment value are excluded from price-filtered results, which
-      //    is the safe choice (don't pretend a null is in any bucket).
       final matchesPrice = filters.prices.isEmpty ||
-          (g.payment != null &&
-              filters.prices
-                  .any((b) => _matchesPriceBucket(g.payment!, b)));
+          filters.prices.any((range) {
+            final p = g.payment;
+            if (p == null) return false;
+            if (range == '< ฿3000') return p < 3000;
+            if (range == '฿3000-฿10000') return p >= 3000 && p <= 10000;
+            if (range == '฿10000+') return p > 10000;
+            return true;
+          });
 
-      // 5) Free-text search across title + location.
       final matchesSearch = searchQuery.isEmpty ||
           g.title.toLowerCase().contains(searchQuery) ||
           g.location.toLowerCase().contains(searchQuery);
 
-      return matchesGenre &&
-          matchesType &&
-          matchesLocation &&
-          matchesPrice &&
-          matchesSearch;
+      return matchesGenre && matchesLocation && matchesPrice && matchesSearch;
     }).toList();
   }
 
@@ -322,14 +310,14 @@ class _HomePageState extends State<HomePage> {
                                       top: 4,
                                       child: StreamBuilder<
                                           List<Map<String, dynamic>>>(
-                                        stream: Supabase.instance.client
-                                            .from('notifications')
-                                            .stream(primaryKey: ['id']).map(
-                                                (data) => data
-                                                    .where((n) =>
-                                                        n['user_id'] ==
-                                                            userId &&
-                                                        n['is_read'] == false)
+                                        stream: userId == null
+                                            ? const Stream.empty()
+                                            : Supabase.instance.client
+                                                .from('notifications')
+                                                .stream(primaryKey: ['id'])
+                                                .eq('user_id', userId!)
+                                                .map((data) => data
+                                                    .where((n) => n['is_read'] == false)
                                                     .toList()),
                                         builder: (context, snapshot) {
                                           if (!snapshot.hasData)
@@ -528,6 +516,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                     ),
 
+                    if (_userLat != null) ...[
                     const SizedBox(height: 30),
                     // 🔹 Nearby
                     _sectionHeader(context, "Nearby Gigs", onSeeAll: () {
@@ -557,6 +546,7 @@ class _HomePageState extends State<HomePage> {
                             itemBuilder: (_, i) =>
                                 _gigCardGrid(context, filteredNearby[i]),
                           ),
+                    ],
                   ]));
         },
       ),
@@ -711,7 +701,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      "฿ ${gig.price.toStringAsFixed(0)}",
+                      payLabel(gig.payment, gig.paymentUnit),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -761,6 +751,7 @@ class _HomePageState extends State<HomePage> {
                           return const Center(
                               child: CircularProgressIndicator());
                         },
+                        errorBuilder: (_, __, ___) => _placeholderImage(130),
                       )
                     : _placeholderImage(130),
 
@@ -858,7 +849,7 @@ class _HomePageState extends State<HomePage> {
 
                   /// Price highlight
                   Text(
-                    "฿ ${gig.price.toStringAsFixed(0)}",
+                    payLabel(gig.payment, gig.paymentUnit),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.primaryGold,
@@ -980,4 +971,5 @@ class _HomePageState extends State<HomePage> {
     final dd = d.day.toString().padLeft(2, '0');
     return "${d.year}-$mm-$dd";
   }
+
 }

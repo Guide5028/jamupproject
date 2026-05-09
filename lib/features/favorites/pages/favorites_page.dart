@@ -41,7 +41,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   Future<List<Gig>> _refresh() async {
-    await FavoritesService.instance.loadAll();
+    try {
+      await FavoritesService.instance.loadAll();
+    } catch (_) {
+      // Network unavailable — return whatever is cached (may be empty).
+    }
     return FavoritesService.instance.listFavoriteGigs();
   }
 

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:jamup_app/features/booking/data/booking_repository.dart';
+import 'package:jamup_app/features/gigs/data/gig_repository.dart';
 import 'package:jamup_app/features/gigs/pages/gig_detail_page.dart';
+import 'package:jamup_app/features/messages/pages/chat_page.dart';
 import 'package:jamup_app/features/reviews/data/review_repository.dart';
 import 'package:jamup_app/features/reviews/review_widget.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
-import '../../../core/widgets/portfolio_grid.dart'; 
+import '../../../core/widgets/portfolio_grid.dart';
+import '../../../models/gig.dart';
 import '../../../models/musician.dart';
 
 class MusicianDetailPage extends StatefulWidget {
@@ -74,7 +79,20 @@ class _MusicianDetailPageState extends State<MusicianDetailPage> {
           ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.darkBrown),
-            onPressed: () {},
+            onPressed: () {
+              final m = widget.musician;
+              final parts = <String>[
+                '🎵 ${m.name}',
+                if (m.type.isNotEmpty) m.type,
+                if (m.genre.isNotEmpty) m.genre,
+                if (m.location != null && m.location!.isNotEmpty)
+                  '📍 ${m.location}',
+                if (m.bio.isNotEmpty) '\n${m.bio}',
+                if (m.priceRange != null && m.priceRange!.isNotEmpty)
+                  '💰 ${m.priceRange}',
+              ];
+              Share.share(parts.join('\n'));
+            },
           ),
         ],
       ),
@@ -221,7 +239,10 @@ class _MusicianDetailPageState extends State<MusicianDetailPage> {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => GigDetailPage(gig: gig['id']),
+                              builder: (_) => GigDetailPage(
+                                gig: Gig.fromJson(
+                                    Map<String, dynamic>.from(gig)),
+                              ),
                             ),
                           ),
                           child: Container(
@@ -323,32 +344,7 @@ class _MusicianDetailPageState extends State<MusicianDetailPage> {
 
                 const SizedBox(height: 20),
 
-                // Book button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGold,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text("Please select an upcoming show to book"),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      "Book Now",
-                      style: AppFonts.textTheme.bodyLarge?.copyWith(
-                          color: AppColors.background, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
+                _buildActionButton(context),
               ],
             ),
           ),
@@ -365,6 +361,144 @@ class _MusicianDetailPageState extends State<MusicianDetailPage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(text, style: AppFonts.textTheme.bodyMedium),
+    );
+  }
+
+  Widget _buildActionButton(BuildContext context) {
+    User? user;
+    try {
+      user = Supabase.instance.client.auth.currentUser;
+    } catch (_) {}
+    final role = (user?.userMetadata?['role'] ?? '').toString().toLowerCase();
+
+    if (role == 'venue') {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryGold,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: const Icon(Icons.send, color: Colors.white, size: 18),
+          label: Text(
+            "Invite to Gig",
+            style: AppFonts.textTheme.bodyLarge
+                ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          onPressed: () => _showGigPickerSheet(context, user!.id),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Future<void> _showGigPickerSheet(BuildContext context, String venueId) async {
+    final gigs = await GigRepository().fetchMyGigs(venueId);
+
+    if (!context.mounted) return;
+
+    if (gigs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You have no gigs to invite for.")),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _GigPickerSheet(
+        gigs: gigs,
+        musician: widget.musician,
+      ),
+    );
+  }
+}
+
+class _GigPickerSheet extends StatefulWidget {
+  final List<Gig> gigs;
+  final Musician musician;
+  const _GigPickerSheet({required this.gigs, required this.musician});
+  @override
+  State<_GigPickerSheet> createState() => _GigPickerSheetState();
+}
+
+class _GigPickerSheetState extends State<_GigPickerSheet> {
+  bool _loading = false;
+
+  Future<void> _invite(Gig gig) async {
+    setState(() => _loading = true);
+    try {
+      final result = await BookingRepository().inviteMusicianToGig(
+        gigId: gig.id,
+        musicianId: widget.musician.id,
+        startTime: gig.date,
+        endTime: gig.date.add(const Duration(hours: 2)),
+      );
+      final booking = result['booking'] as Map<String, dynamic>;
+      final chatId = result['chatId'] as String;
+      if (!mounted) return;
+      Navigator.pop(context);
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatPage(
+          chatId: chatId,
+          bookingId: booking['id'].toString(),
+          name: widget.musician.name,
+          avatar: widget.musician.imageUrl,
+          initialStatus: booking['status'] ?? 'pending',
+          otherUserId: widget.musician.id,
+          isVenue: true,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Invite failed: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          Text("Select a Gig to Invite", style: AppFonts.textTheme.headlineMedium),
+          const SizedBox(height: 4),
+          Text("Inviting ${widget.musician.name}", style: AppFonts.textTheme.bodyMedium?.copyWith(color: AppColors.accentBrown)),
+          const SizedBox(height: 16),
+          if (_loading)
+            const Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())
+          else
+            ...widget.gigs.map((gig) {
+              final mm = gig.date.month.toString().padLeft(2, '0');
+              final dd = gig.date.day.toString().padLeft(2, '0');
+              final dateStr = "${gig.date.year}-$mm-$dd";
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: AppColors.primaryGold.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.music_note, color: AppColors.primaryGold),
+                ),
+                title: Text(gig.title, style: AppFonts.textTheme.bodyLarge),
+                subtitle: Text("${gig.location} • $dateStr", style: AppFonts.textTheme.bodyMedium),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.accentBrown),
+                onTap: () => _invite(gig),
+              );
+            }),
+        ],
+      ),
     );
   }
 }

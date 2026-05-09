@@ -106,7 +106,9 @@ class _MessagesPageState extends State<MessagesPage> {
                               bookingId: bookingId,
                               name: name,
                               avatar: avatar,
-                              initialStatus: status, otherUserId: '',
+                              initialStatus: status,
+                              otherUserId: '',
+                              isVenue: !(c['is_musician'] as bool? ?? true),
                             ),
                           ),
                         ).then((_) {
@@ -138,11 +140,6 @@ class _MessagesPageState extends State<MessagesPage> {
                                     ? const Icon(Icons.person,
                                         color: AppColors.darkBrown)
                                     : null,
-                              ),
-
-                              Divider(
-                                height: 1,
-                                color: Colors.grey.shade200,
                               ),
 
                               const SizedBox(width: 14),
@@ -288,15 +285,16 @@ class _MessagesPageState extends State<MessagesPage> {
     if (date == null) return '';
 
     final now = DateTime.now();
+    final isToday = date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
 
-    // If today → show time
-    if (now.difference(date).inDays == 0) {
+    if (isToday) {
       final hour = date.hour.toString().padLeft(2, '0');
       final minute = date.minute.toString().padLeft(2, '0');
       return "$hour:$minute";
     }
 
-    // If not today → show date
     return "${date.day}/${date.month}";
   }
 }

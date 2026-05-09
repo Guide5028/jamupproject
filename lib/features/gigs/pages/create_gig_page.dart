@@ -31,7 +31,7 @@ class CreateGigPage extends StatefulWidget {
 
 class _CreateGigPageState extends State<CreateGigPage> {
   final _repo = GigRepository();
-  final _supabase = Supabase.instance.client;
+  SupabaseClient get _supabase => Supabase.instance.client;
   final _picker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
 
@@ -50,6 +50,7 @@ class _CreateGigPageState extends State<CreateGigPage> {
   double? _longitude;
   File? _coverImage;
   String _roleNeeded = 'Any';
+  String _paymentUnit = 'fixed'; // 'per_hour' | 'per_day' | 'fixed'
 
   // Curated genre list — matches the filter chips on the gigs page.
   // We keep it small so the chip row stays scannable.
@@ -96,8 +97,11 @@ class _CreateGigPageState extends State<CreateGigPage> {
     );
     if (picked != null) {
       setState(() {
-        if (isStart) _startTime = picked;
-        else _endTime = picked;
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
       });
     }
   }
@@ -167,6 +171,7 @@ class _CreateGigPageState extends State<CreateGigPage> {
         latitude: _latitude!,
         longitude: _longitude!,
         payment: double.tryParse(_payment.text.trim()),
+        paymentUnit: _paymentUnit,
         roleNeeded: _roleNeeded == 'Any' ? null : _roleNeeded,
         slots: int.tryParse(_slots.text.trim()) ?? 1,
         startTime: startTs,
@@ -367,10 +372,13 @@ class _CreateGigPageState extends State<CreateGigPage> {
                   controller: _payment,
                   keyboardType: const TextInputType.numberWithOptions(
                       decimal: true),
-                  decoration: _dec('Payment (฿)',
+                  decoration: _dec('Pay for musician (฿)',
                       hint: 'e.g. 3000',
                       prefix: const Icon(Icons.payments_outlined)),
                 ),
+                const SizedBox(height: 10),
+                // Rate unit — makes it clear musicians see ฿X/hr or ฿X/day
+                _buildPaymentUnitToggle(),
 
                 const SizedBox(height: 24),
                 _buildSaveButton(),
@@ -380,6 +388,52 @@ class _CreateGigPageState extends State<CreateGigPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPaymentUnitToggle() {
+    const units = [
+      ('fixed',    'Fixed total'),
+      ('per_hour', 'Per hour'),
+      ('per_day',  'Per day'),
+    ];
+    return Row(
+      children: units.map((u) {
+        final isSelected = _paymentUnit == u.$1;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentUnit = u.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primaryGold
+                      : AppColors.primaryGold.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primaryGold
+                        : AppColors.accentBrown.withOpacity(0.3),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    u.$2,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.white : AppColors.darkBrown,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

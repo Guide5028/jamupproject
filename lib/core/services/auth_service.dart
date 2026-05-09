@@ -23,7 +23,7 @@ import '../services/favorites_service.dart';
 ///        step, the user is invisible to `get_nearby_musicians` RPC,
 ///        which is why the "nearby" feature looked broken.
 class AuthService {
-  final supabase = Supabase.instance.client;
+  SupabaseClient get supabase => Supabase.instance.client;
 
   // ─── SIGN UP ─────────────────────────────────────────────────
   Future<AuthResponse> signUp({

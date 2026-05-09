@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../../../core/utils/pay_label.dart';
 import '../../../core/services/favorites_service.dart';
 
 import '../../../models/gig.dart';
 
+import '../../messages/data/messages_repository.dart';
 import '../../messages/pages/chat_page.dart';
 
+import '../../venues/pages/venue_detail_page.dart';
 import '../../booking/data/booking_repository.dart';
 
 class GigDetailPage extends StatelessWidget {
@@ -52,6 +56,7 @@ class GigDetailPage extends StatelessWidget {
             avatar: gig.imageUrl,
             initialStatus: booking['status'] ?? 'pending',
             otherUserId: '',
+            isVenue: false,
           ),
         ),
       );
@@ -66,7 +71,10 @@ class GigDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
-    final user = Supabase.instance.client.auth.currentUser;
+    User? user;
+    try {
+      user = Supabase.instance.client.auth.currentUser;
+    } catch (_) {}
     final role = (user?.userMetadata?['role'] ?? '').toString().toLowerCase();
 
     final isMusician = role == 'musician';
@@ -104,7 +112,7 @@ class GigDetailPage extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.darkBrown),
-            onPressed: () {},
+            onPressed: () => _showShareSheet(context),
           ),
         ],
       ),
@@ -225,13 +233,8 @@ class GigDetailPage extends StatelessWidget {
                     ),
                     _infoTile(
                       Icons.payments,
-                      "Payment",
-                      // Currency is THB. We format with no decimals because
-                      // a gig payment of 3000.0 displays cleaner as "฿3,000"
-                      // than "฿3000.0". toStringAsFixed(0) drops decimals.
-                      gig.payment != null
-                          ? "฿${gig.payment!.toStringAsFixed(0)}"
-                          : "Not specified",
+                      "Musician Pay",
+                      payLabel(gig.payment, gig.paymentUnit),
                     ),
                   ],
                 ),
@@ -363,9 +366,12 @@ class GigDetailPage extends StatelessWidget {
 
           // 🎯 Organizer
           GestureDetector(
-            onTap: () {
-              // TODO open venue profile page
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VenueDetailPage(venueId: gig.venueId),
+              ),
+            ),
             child: Row(
               children: [
                 const CircleAvatar(
@@ -450,6 +456,62 @@ class GigDetailPage extends StatelessWidget {
 
   // 🔹 Helpers
 
+  void _showShareSheet(BuildContext context) {
+    final mm = gig.date.month.toString().padLeft(2, '0');
+    final dd = gig.date.day.toString().padLeft(2, '0');
+    final dateStr = "${gig.date.year}-$mm-$dd";
+    final payText = payLabel(gig.payment, gig.paymentUnit);
+    final shareText = "🎵 ${gig.title}\n📍 ${gig.location}\n📅 $dateStr\n💰 $payText\n\nVia JamUp";
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Text("Share Gig", style: AppFonts.textTheme.headlineMedium),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.primaryGold.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.share, color: AppColors.primaryGold),
+              ),
+              title: const Text("Share to other apps"),
+              subtitle: const Text("Send via WhatsApp, Line, etc."),
+              onTap: () { Navigator.pop(context); Share.share(shareText, subject: gig.title); },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.primaryGold.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.chat_bubble_outline, color: AppColors.primaryGold),
+              ),
+              title: const Text("Send to a Chat"),
+              subtitle: const Text("Share this gig in an existing conversation"),
+              onTap: () { Navigator.pop(context); _showChatPickerSheet(context, shareText); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showChatPickerSheet(BuildContext context, String shareText) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ChatPickerSheet(shareText: shareText),
+    );
+  }
+
   Widget _placeholderImage(double height) {
     return Container(
       height: height,
@@ -502,5 +564,91 @@ class GigDetailPage extends StatelessWidget {
     final mm = d.month.toString().padLeft(2, '0');
     final dd = d.day.toString().padLeft(2, '0');
     return "${d.year}-$mm-$dd";
+  }
+
+}
+
+class _ChatPickerSheet extends StatefulWidget {
+  final String shareText;
+  const _ChatPickerSheet({required this.shareText});
+  @override
+  State<_ChatPickerSheet> createState() => _ChatPickerSheetState();
+}
+
+class _ChatPickerSheetState extends State<_ChatPickerSheet> {
+  SupabaseClient get _supabase => Supabase.instance.client;
+  late final Future<List<Map<String, dynamic>>> _convsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _convsFuture = MessagesRepository().fetchConversations();
+  }
+
+  Future<void> _send(String chatId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    await _supabase.from('messages').insert({
+      'chat_id': chatId,
+      'sender_id': user.id,
+      'text': widget.shareText,
+      'type': 'user',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gig sent to chat")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          Text("Send to Chat", style: AppFonts.textTheme.headlineMedium),
+          const SizedBox(height: 16),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _convsFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator());
+              }
+              final convos = snap.data ?? [];
+              if (convos.isEmpty) {
+                return const Padding(padding: EdgeInsets.all(16), child: Text("No conversations yet."));
+              }
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: convos.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final c = convos[i];
+                    final avatar = (c['other_avatar'] ?? '') as String;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                        backgroundColor: AppColors.primaryGold.withOpacity(0.15),
+                        child: avatar.isEmpty ? const Icon(Icons.person, color: AppColors.darkBrown) : null,
+                      ),
+                      title: Text(c['other_name'] ?? '', style: AppFonts.textTheme.bodyLarge),
+                      subtitle: Text(c['status'] ?? '', style: AppFonts.textTheme.bodyMedium),
+                      trailing: const Icon(Icons.send, size: 18, color: AppColors.primaryGold),
+                      onTap: () => _send(c['chat_id'] as String),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

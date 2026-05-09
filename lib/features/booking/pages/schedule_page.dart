@@ -83,13 +83,17 @@ class _SchedulePageState extends State<SchedulePage> {
         continue;
       }
 
-      final startTime = DateTime.tryParse(startRaw.toString());
-      final endTime = DateTime.tryParse(endRaw.toString());
+      final startUtc = DateTime.tryParse(startRaw.toString());
+      final endUtc = DateTime.tryParse(endRaw.toString());
 
-      if (startTime == null || endTime == null) {
+      if (startUtc == null || endUtc == null) {
         debugPrint('⚠️ Invalid date format: $b');
         continue;
       }
+
+      // Convert to local time so calendar days match the user's timezone
+      final startTime = startUtc.toLocal();
+      final endTime = endUtc.toLocal();
 
       final title = gigs?['title']?.toString() ?? 'Untitled Gig';
       final location = gigs?['location']?.toString() ?? 'Unknown Venue';
@@ -294,7 +298,7 @@ class _SchedulePageState extends State<SchedulePage> {
                                 bookingId: item.bookingId,
                               ),
                             ),
-                          );
+                          ).then((_) => _loadSchedule());
                         },
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 16),

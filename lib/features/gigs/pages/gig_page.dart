@@ -26,6 +26,150 @@ class GigPage extends StatefulWidget {
 class _GigPageState extends State<GigPage> {
   final _searchCtrl = TextEditingController();
 
+  // ── Location bottom sheet ─────────────────────────────────────────────
+  // Shows TWO sections:
+  //   1) "📍 Near me" — toggles the GPS nearby mode (loads via RPC + sorts by distance)
+  //   2) City text chips — populates FilterState.locations for a contains-match filter
+  //      on the already-loaded gig list. Both can be active at once.
+  void _showLocationPicker(
+    BuildContext context,
+    GigController ctrl,
+    FilterState filters,
+  ) {
+    const cities = [
+      'Bangkok',
+      'Chiang Mai',
+      'Phuket',
+      'Pattaya',
+      'Chiang Rai',
+      'Hua Hin',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF121212),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setModal) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Location',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // ── GPS nearby toggle ──────────────────────────────
+                ListTile(
+                  leading: Icon(
+                    Icons.near_me,
+                    color: ctrl.isNearbyMode
+                        ? AppColors.primaryGold
+                        : Colors.white54,
+                  ),
+                  title: Text(
+                    ctrl.isNearbyMode
+                        ? 'Near me — ${ctrl.radiusKm.toStringAsFixed(0)} km ✓'
+                        : 'Near me (use GPS)',
+                    style: TextStyle(
+                      color: ctrl.isNearbyMode
+                          ? AppColors.primaryGold
+                          : Colors.white,
+                      fontWeight: ctrl.isNearbyMode
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: ctrl.isNearbyMode
+                      ? const Icon(Icons.check, color: AppColors.primaryGold)
+                      : null,
+                  onTap: () async {
+                    if (ctrl.isNearbyMode) {
+                      ctrl.loadAll();
+                      ctrl.setSort(GigSort.oldest);
+                      if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                    } else {
+                      final pos = await LocationService.getUserLocation();
+                      if (pos == null) {
+                        if (sheetCtx.mounted) {
+                          Navigator.pop(sheetCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content:
+                                  Text('Could not get location. Enable GPS.'),
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      ctrl.loadNearby(
+                        lat: pos.latitude,
+                        lng: pos.longitude,
+                        radiusKm: ctrl.radiusKm,
+                      );
+                      ctrl.setSort(GigSort.distance);
+                      if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                    }
+                  },
+                ),
+
+                const Divider(color: Colors.white24, height: 1),
+
+                // ── City text filters ──────────────────────────────
+                ...cities.map((city) {
+                  final selected = filters.locations.contains(city);
+                  return ListTile(
+                    leading: const Icon(Icons.location_city,
+                        color: Colors.white54, size: 20),
+                    title: Text(
+                      city,
+                      style: TextStyle(
+                        color:
+                            selected ? AppColors.primaryGold : Colors.white,
+                        fontWeight:
+                            selected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    trailing: selected
+                        ? const Icon(Icons.check,
+                            color: AppColors.primaryGold)
+                        : null,
+                    onTap: () {
+                      setModal(() => filters.toggleLocation(city));
+                      // Sync immediately so the filter updates without
+                      // waiting for the next frame's addPostFrameCallback.
+                      ctrl.setLocationFilters(Set.from(filters.locations));
+                    },
+                  );
+                }),
+
+                const SizedBox(height: 20),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showRadiusPicker(BuildContext context, GigController ctrl) {
     double tempRadius = ctrl.radiusKm;
 
@@ -226,31 +370,8 @@ class _GigPageState extends State<GigPage> {
                         },
                       );
                     },
-                    onLocationTap: () async {
-                      if (ctrl.isNearbyMode) {
-                        ctrl.loadAll(); // turn off → back to all gigs
-                        ctrl.setSort(
-                            GigSort.dateAsc); // reset sort back to date
-                      } else {
-                        final pos = await LocationService.getUserLocation();
-                        if (pos == null) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Could not get location. Enable GPS.')),
-                            );
-                          }
-                          return;
-                        }
-                        ctrl.loadNearby(
-                            lat: pos.latitude,
-                            lng: pos.longitude,
-                            radiusKm: ctrl.radiusKm);
-                        ctrl.setSort(GigSort
-                            .distance); // sort closest first automatically
-                      }
-                    },
+                    onLocationTap: () =>
+                        _showLocationPicker(context, ctrl, filters),
                     onPriceTap: () {
                       // Bucket labels MUST stay in sync with the parser
                       // in GigController._matchesPriceBucket. The "฿"
@@ -273,7 +394,9 @@ class _GigPageState extends State<GigPage> {
                     },
                     genreActive: filters.genreActive,
                     typeActive: filters.typeActive,
-                    locationActive: ctrl.isNearbyMode,
+                    // Highlight if GPS nearby OR any city text filter is active
+                    locationActive:
+                        ctrl.isNearbyMode || filters.locationActive,
                     priceActive: filters.priceActive,
                   ),
                   if (ctrl.isNearbyMode)
@@ -366,16 +489,35 @@ class _GigPageState extends State<GigPage> {
 
   Widget _activeFilters(BuildContext context) {
     final filters = context.watch<FilterState>();
+    final ctrl = context.read<GigController>();
 
     final chips = <Widget>[];
 
+    // Genre chips
     for (final g in filters.genres) {
-      chips.add(
-        FilterChipTag(
-          label: g,
-          onRemove: () => filters.removeGenre(g),
-        ),
-      );
+      chips.add(FilterChipTag(label: g, onRemove: () => filters.removeGenre(g)));
+    }
+
+    // Type chips
+    for (final t in filters.types) {
+      chips.add(FilterChipTag(label: t, onRemove: () => filters.toggleType(t)));
+    }
+
+    // Location city chips (text filter — separate from GPS nearby mode)
+    for (final l in filters.locations) {
+      chips.add(FilterChipTag(
+        label: l,
+        onRemove: () {
+          filters.toggleLocation(l);
+          // Sync removal immediately so filtered list updates right away.
+          ctrl.setLocationFilters(Set.from(filters.locations));
+        },
+      ));
+    }
+
+    // Price chips
+    for (final p in filters.prices) {
+      chips.add(FilterChipTag(label: p, onRemove: () => filters.togglePrice(p)));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();

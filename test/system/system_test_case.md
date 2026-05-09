@@ -289,3 +289,113 @@ backfilled coordinates AND the distance_km/distance fallback in
 Gig.fromJson are in effect.
 
 Status: PASS
+
+
+ST-23 Venue Profile Trust Page
+Steps:
+1. Sign in as a musician
+2. From the Home page or Gigs page, tap any gig card
+3. On the Gig Detail page, scroll down to the "Organizer" row
+4. Tap the Organizer row
+
+Expected Result:
+Venue Detail page opens for that venue.
+The trust stats card is visible showing three stats: average rating
+(star icon), gigs hosted count (event icon), and member since year
+(calendar icon).
+If the venue has received reviews, the star rating shows a number
+between 1.0 and 5.0, not "—".
+The "Open Gigs" section lists upcoming gigs for that venue with
+an "Apply" chip on each row.
+The "Past Events" section lists historical gigs with a green
+checkmark icon, proving the venue has a track record.
+The "Reviews from Musicians" section shows any submitted reviews.
+
+Status: PASS
+
+
+ST-24 Musician Reviews a Venue
+Steps:
+1. Sign in as a musician who has a confirmed booking with a venue
+2. Open Profile → My Bookings
+3. Tap the confirmed booking
+4. Tap "Leave Review" on the Booking Detail page
+5. Select a star rating (e.g. 4 stars)
+6. Enter a comment: "Great venue, very professional"
+7. Submit the review
+8. Navigate to the venue's profile via any gig → Organizer tap
+
+Expected Result:
+The review submission succeeds with no error snackbar.
+On the Venue Detail page, the new review appears in the
+"Reviews from Musicians" section with the correct star count
+and comment text.
+The average rating in the trust stats card updates to reflect
+the new review.
+This is the reverse of ST-07 (which tests venue reviewing a
+musician) and proves the review system works bidirectionally.
+
+Status: PASS
+
+
+ST-25 Venue Declines a Booking Request
+Steps:
+1. Sign in as a venue that has at least one pending booking request
+2. Open Profile → Booking Requests
+3. Find a booking with status "pending"
+4. Tap "Decline" on that booking card
+
+Expected Result:
+The booking card status badge changes from "pending" (amber)
+to "declined" (red) immediately (optimistic UI update).
+The Confirm and Decline buttons disappear — only the Chat button
+remains visible for that card.
+In the Supabase bookings table, that row's status is "declined".
+The musician who applied sees status "declined" on their
+My Bookings page.
+This is the sad path counterpart to ST-05 (Accept Booking) and
+proves the full confirm/decline flow works end-to-end.
+
+Status: PASS
+
+
+ST-26 Register New Account (Musician Role)
+Steps:
+1. Open the JamUP app while not signed in
+2. Tap "Register" on the login screen
+3. Enter: full name "Test Musician", a unique test email address,
+   and a password of at least 6 characters
+4. Select role "Musician"
+5. Tap the register / submit button
+
+Expected Result:
+No error is shown.
+The app navigates to the Home page as a logged-in musician.
+The Profile page shows the name "Test Musician" and the role
+badge reads "MUSICIAN".
+A row exists in the Supabase users table with role = 'musician'
+and the entered name.
+This proves the full registration → auto-login flow works for
+the musician role.
+
+Status: PASS
+
+
+ST-27 Venue Edits an Existing Gig
+Steps:
+1. Sign in as a venue that has at least one existing gig
+2. Open Profile → My Gigs
+3. Tap any gig card to open the Edit Gig page
+4. Change the title to a new unique value (e.g. "Updated Title Test")
+5. Change the payment amount to a new value (e.g. 4500)
+6. Tap Save
+
+Expected Result:
+A success snackbar appears confirming the update.
+The My Gigs list refreshes and shows the updated title.
+Navigating to that gig from the public Gigs feed shows the
+new title and updated payment amount.
+In the Supabase gigs table, the row reflects the new values.
+This is the edit path that ST-10 (create gig) does not cover.
+
+Status: PASS

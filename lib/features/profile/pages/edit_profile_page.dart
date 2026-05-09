@@ -30,7 +30,7 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  final _supabase = Supabase.instance.client;
+  SupabaseClient get _supabase => Supabase.instance.client;
   final _picker = ImagePicker();
 
   final _nameCtrl = TextEditingController();
@@ -56,7 +56,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadProfile().catchError((_) {
+      if (mounted) setState(() => _loading = false);
+    });
   }
 
   @override

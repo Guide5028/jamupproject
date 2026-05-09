@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BookingRepository {
@@ -28,7 +29,7 @@ class BookingRepository {
       });
     } catch (e) {
       // Log but don't rethrow — booking succeeded, notification is best-effort.
-      print('⚠️ notify failed: $e');
+      debugPrint('⚠️ notify failed: $e');
     }
   }
 
@@ -71,8 +72,8 @@ class BookingRepository {
         .or(
           'musician_id.eq.${user.id},venue_id.eq.$venueId',
         )
-        .lt('start_time', endTime)
-        .gt('end_time', startTime)
+        .lt('start_time', endTime.toIso8601String())
+        .gt('end_time', startTime.toIso8601String())
         .maybeSingle();
 
     if (conflict != null) {
@@ -132,6 +133,66 @@ class BookingRepository {
       },
     );
 
+    return {'booking': booking, 'chatId': chatId};
+  }
+
+  /// Venue-initiated invite: venue picks a gig and invites a musician
+  Future<Map<String, dynamic>> inviteMusicianToGig({
+    required String gigId,
+    required String musicianId,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception("Not logged in");
+
+    final me =
+        await supabase.from('users').select('role').eq('id', user.id).single();
+    if (me['role'] != 'venue') throw Exception("Only venues can invite musicians");
+
+    final conflict = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('status', 'confirmed')
+        .or('musician_id.eq.$musicianId,venue_id.eq.${user.id}')
+        .lt('start_time', endTime.toIso8601String())
+        .gt('end_time', startTime.toIso8601String())
+        .maybeSingle();
+
+    if (conflict != null) throw Exception('⛔ Time slot already booked');
+
+    final booking = await supabase
+        .from('bookings')
+        .insert({
+          'gig_id': gigId,
+          'musician_id': musicianId,
+          'venue_id': user.id,
+          'status': 'pending',
+          'start_time': startTime.toIso8601String(),
+          'end_time': endTime.toIso8601String(),
+        })
+        .select()
+        .single();
+
+    final existingChat = await supabase
+        .from('chats')
+        .select('id')
+        .eq('booking_id', booking['id'])
+        .maybeSingle();
+
+    final String chatId;
+    if (existingChat != null) {
+      chatId = existingChat['id'].toString();
+    } else {
+      final chat = await supabase
+          .from('chats')
+          .insert({'booking_id': booking['id']})
+          .select()
+          .single();
+      chatId = chat['id'].toString();
+    }
+
+    await sendSystemMessage(chatId: chatId, text: '🎵 Venue sent a gig invitation');
     return {'booking': booking, 'chatId': chatId};
   }
 
@@ -313,7 +374,7 @@ class BookingRepository {
         },
       );
     } catch (e) {
-      print('⚠️ booking response notify failed: $e');
+      debugPrint('⚠️ booking response notify failed: $e');
     }
   }
 

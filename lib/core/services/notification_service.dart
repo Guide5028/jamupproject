@@ -1,3 +1,11 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'package:jamup_app/core/app_navigator.dart';
+
+import 'package:jamup_app/features/booking/pages/booking_detail_page.dart';
+import 'package:jamup_app/features/messages/pages/chat_page.dart';
+
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -37,7 +45,7 @@ class NotificationService {
 
     // Boot the SDK with your OneSignal App ID.
     // Reference: https://documentation.onesignal.com/docs/flutter-sdk-setup
-    OneSignal.initialize("08bf7c47-ef4a-49c7-9673-6ae912d7ea81");
+    OneSignal.initialize(dotenv.env['ONESIGNAL_APP_ID']!);
 
     // Ask the OS for permission to display notifications.
     // On Android 13+ and all iOS versions this is REQUIRED, otherwise
@@ -53,14 +61,15 @@ class NotificationService {
     });
 
     // ── Listener B: react when user taps a notification ──
-    // additionalData is a map you include when sending the push from
-    // your server (e.g. {"gigId": "abc-123"}). Use it to deep-link
-    // into the correct screen.
+    // additionalData is the map you include when sending the push from
+    // your Edge Function (e.g. {"type": "booking_request", "bookingId": "..."}).
+    // We use the global navigatorKey so routing works even when the click
+    // arrives before any widget's BuildContext exists.
     OneSignal.Notifications.addClickListener((event) {
       final data = event.notification.additionalData;
-      // TODO: route to the right page based on `data`.
-      // Example: if (data?['gigId'] != null) Navigator.pushNamed(...);
-      print("Notification clicked. Data = $data");
+      debugPrint('Notification tapped. Data = $data');
+      if (data == null) return;
+      _handleNotificationTap(data);
     });
 
     // ── Listener C: store the Player ID whenever it changes ──
@@ -79,6 +88,47 @@ class NotificationService {
         await _saveDeviceToken(user.id, playerId);
       }
     });
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Deep-link routing based on notification payload
+  // ──────────────────────────────────────────────────────────────
+  static void _handleNotificationTap(Map<String, dynamic> data) {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+
+    final type = data['type'] as String? ?? '';
+    final bookingId = data['bookingId'] as String?;
+    final chatId = data['chatId'] as String?;
+
+    if (type == 'message' && chatId != null) {
+      // Open the chat directly
+      nav.push(MaterialPageRoute(
+        builder: (_) => ChatPage(
+          chatId: chatId,
+          name: '',
+          avatar: '',
+          otherUserId: '',
+          isVenue: false, // will reload its own role
+        ),
+      ));
+      return;
+    }
+
+    if ((type.startsWith('booking_') || type == 'booking_request') &&
+        bookingId != null) {
+      nav.push(MaterialPageRoute(
+        builder: (_) => BookingDetailPage(bookingId: bookingId),
+      ));
+      return;
+    }
+
+    // Fallback: if bookingId is present but type is unknown, open booking
+    if (bookingId != null) {
+      nav.push(MaterialPageRoute(
+        builder: (_) => BookingDetailPage(bookingId: bookingId),
+      ));
+    }
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -122,7 +172,7 @@ class NotificationService {
             .eq('player_id', playerId);
       } catch (e) {
         // We swallow the error: logout must never fail because of this.
-        print('Failed to clean device_tokens: $e');
+        debugPrint('Failed to clean device_tokens: $e');
       }
     }
 
@@ -144,7 +194,7 @@ class NotificationService {
         'player_id': playerId,
       }, onConflict: 'user_id,player_id');
     } catch (e) {
-      print('Failed to save device token: $e');
+      debugPrint('Failed to save device token: $e');
     }
   }
 }

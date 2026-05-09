@@ -18,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jamup_app/models/gig.dart';
 
 void main() {
-  group('Gig Model', () {
+  group('Gig Model — required fields', () {
     test('fromJson parses required fields correctly', () {
       final gig = Gig.fromJson({
         'id': '1',
@@ -32,21 +32,22 @@ void main() {
         'musician_id': 'musician456',
         'latitude': 18.7883,
         'longitude': 98.9853,
-        'price': 2500,
+        'payment': 2500,
       });
 
       expect(gig.id, '1');
       expect(gig.title, 'Jazz Night');
       expect(gig.location, 'Chiang Mai');
       expect(gig.genres.contains('Jazz'), true);
-      expect(gig.price, 2500);
+      expect(gig.payment, 2500);
     });
+  });
 
-    // The bug we fixed: live RPC returns `distance_km`, but model used
-    // to read only `distance`. This test pins the new fallback contract
-    // so anyone removing the fallback breaks a test.
-    test('fromJson reads distance_km first, then falls back to distance',
-        () {
+  // The bug we fixed: live RPC returns `distance_km`, but model used
+  // to read only `distance`. This test pins the new fallback contract
+  // so anyone removing the fallback breaks a test.
+  group('Gig Model — distance field fallback', () {
+    test('fromJson reads distance_km first, then falls back to distance', () {
       final fromRpc = Gig.fromJson({
         'id': '1', 'title': 't', 'date': '2026-01-01',
         'distance_km': 4.2,
@@ -64,7 +65,9 @@ void main() {
       });
       expect(none.distance, isNull);
     });
+  });
 
+  group('Gig Model — optional field defaults', () {
     test('fromJson handles missing optional fields with safe defaults', () {
       final gig = Gig.fromJson({
         'id': 'x',
@@ -76,8 +79,8 @@ void main() {
       expect(gig.location, '');
       expect(gig.imageUrl, '');
       expect(gig.genres, isEmpty);
-      expect(gig.price, 0.0);
       expect(gig.payment, isNull);
+      expect(gig.paymentUnit, isNull);
       expect(gig.roleNeeded, '');
       expect(gig.slots, 0);
       expect(gig.applicants, 0);
@@ -93,14 +96,12 @@ void main() {
       expect(gig.date.isBefore(after.add(const Duration(seconds: 1))), true);
     });
 
-    test('fromJson coerces numeric values to doubles correctly', () {
+    test('fromJson coerces numeric payment to double', () {
       final gig = Gig.fromJson({
         'id': '1', 'title': 't', 'date': '2026-05-01',
-        'price': 1500.5,
         'payment': 5000,
       });
-      expect(gig.price, 1500.5);
-      expect(gig.payment, 5000);
+      expect(gig.payment, 5000.0);
     });
 
     test('fromJson preserves multiple genres in order', () {
@@ -119,6 +120,46 @@ void main() {
         'title': 't', 'date': '2026-05-01',
       });
       expect(gig.id, '12345');
+    });
+  });
+
+  group('Gig Model — paymentUnit field', () {
+    test('fromJson parses per_hour correctly', () {
+      final gig = Gig.fromJson({
+        'id': '1', 'title': 't', 'date': '2026-05-01',
+        'payment': 1500,
+        'payment_unit': 'per_hour',
+      });
+      expect(gig.payment, 1500.0);
+      expect(gig.paymentUnit, 'per_hour');
+    });
+
+    test('fromJson parses per_day correctly', () {
+      final gig = Gig.fromJson({
+        'id': '1', 'title': 't', 'date': '2026-05-01',
+        'payment': 5000,
+        'payment_unit': 'per_day',
+      });
+      expect(gig.paymentUnit, 'per_day');
+    });
+
+    test('fromJson parses fixed correctly', () {
+      final gig = Gig.fromJson({
+        'id': '1', 'title': 't', 'date': '2026-05-01',
+        'payment': 10000,
+        'payment_unit': 'fixed',
+      });
+      expect(gig.paymentUnit, 'fixed');
+    });
+
+    test('fromJson sets paymentUnit to null when column absent (legacy rows)',
+        () {
+      final gig = Gig.fromJson({
+        'id': '1', 'title': 't', 'date': '2026-05-01',
+        'payment': 3000,
+        // no payment_unit key — simulates a row created before the migration
+      });
+      expect(gig.paymentUnit, isNull);
     });
   });
 }
