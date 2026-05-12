@@ -26,7 +26,6 @@ class GigDetailPage extends StatelessWidget {
     final startTime = gig.date;
     final endTime = gig.date.add(const Duration(hours: 2));
 
-    // 🔒 Safety check (even if UI fails)
     if (me != null && me.id == gig.venueId) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("You can't book your own gig.")),
@@ -93,9 +92,6 @@ class GigDetailPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Reactive heart wired to FavoritesService.
-          // ValueListenableBuilder rebuilds this single icon whenever the
-          // favorites set changes — fast and isolated to this widget.
           ValueListenableBuilder<Set<String>>(
             valueListenable: FavoritesService.instance.ids,
             builder: (_, ids, __) {
@@ -118,13 +114,12 @@ class GigDetailPage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // 🖼️ Gig Image
+          // Hero Image
           SizedBox(
             height: width * 0.65,
             width: double.infinity,
             child: Stack(
               children: [
-                // Image
                 Positioned.fill(
                   child: gig.imageUrl.isEmpty
                       ? _placeholderImage(width * 0.65)
@@ -136,7 +131,6 @@ class GigDetailPage extends StatelessWidget {
                         ),
                 ),
 
-                // Gradient overlay
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -152,7 +146,6 @@ class GigDetailPage extends StatelessWidget {
                   ),
                 ),
 
-                // Title + info on image
                 Positioned(
                   bottom: 20,
                   left: 20,
@@ -160,7 +153,6 @@ class GigDetailPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Title
                       Text(
                         gig.title,
                         style: const TextStyle(
@@ -210,7 +202,7 @@ class GigDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 🎵 Genres
+                // Genre Tags
                 Wrap(
                   spacing: 8,
                   children: gig.genres.map(_buildTag).toList(),
@@ -277,7 +269,7 @@ class GigDetailPage extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                // 📍 LOCATION + DATE
+                // Location & Date
                 Row(
                   children: [
                     const Icon(Icons.location_on,
@@ -305,7 +297,7 @@ class GigDetailPage extends StatelessWidget {
                   ],
                 ),
 
-                // 📍 DISTANCE
+                // Distance Badge
                 if (gig.distance != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -331,7 +323,7 @@ class GigDetailPage extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // ✅ About (REAL description)
+          // About Section
           Row(
             children: [
               const Icon(Icons.info_outline, size: 18),
@@ -364,7 +356,7 @@ class GigDetailPage extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // 🎯 Organizer
+          // Organizer Card
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -401,9 +393,7 @@ class GigDetailPage extends StatelessWidget {
 
           const SizedBox(height: 28),
 
-          // ✅ ACTION SECTION (professional role-based UI)
-
-          // 1) Musician => show Book Now button
+          // Action Section
           if (isMusician)
             SizedBox(
               width: double.infinity,
@@ -424,7 +414,6 @@ class GigDetailPage extends StatelessWidget {
               ),
             ),
 
-          // 2) Venue owner => show hosting badge (no booking button)
           if (isOwner)
             Container(
               width: double.infinity,
@@ -454,7 +443,7 @@ class GigDetailPage extends StatelessWidget {
     );
   }
 
-  // 🔹 Helpers
+  // ── Helpers ──
 
   void _showShareSheet(BuildContext context) {
     final mm = gig.date.month.toString().padLeft(2, '0');

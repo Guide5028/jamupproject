@@ -1,13 +1,3 @@
-// ============================================================================
-// gig_repository.dart  —  All DB access that touches the `gigs` table
-// ============================================================================
-// Teacher note for Guide:
-//  • A "repository" is the single class that owns reading/writing one table.
-//    UI widgets never call Supabase directly — they go through here. That
-//    way, if the schema changes, we only fix ONE file, not ten.
-//  • Every method returns a typed `Gig` or `List<Gig>` so the UI never has
-//    to remember column names (`json['venue_id']` etc.).
-// ============================================================================
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../models/gig.dart';

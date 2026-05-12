@@ -56,6 +56,39 @@ class MusicianCard extends StatelessWidget {
                 ),
               ),
 
+              // 📍 Distance badge — only visible in Nearby mode.
+              // We place it in the top-left corner so it doesn't
+              // obscure the name or genre tags at the bottom.
+              if (musician.distance != null)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGold,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.near_me,
+                            size: 11, color: Colors.white),
+                        const SizedBox(width: 3),
+                        Text(
+                          "${musician.distance!.toStringAsFixed(1)} km",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
               // 📄 Content
               Positioned(
                 left: 12,

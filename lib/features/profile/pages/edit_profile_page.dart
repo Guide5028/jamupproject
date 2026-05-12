@@ -1,17 +1,3 @@
-// ============================================================================
-// edit_profile_page.dart   —   Edit your own user row in `public.users`
-// ============================================================================
-// Teacher notes for Guide:
-//  • The form is SHAPED by `role`. Musicians see genres + instruments +
-//    hourly rate. Venues don't — those fields don't make sense for them.
-//  • Uploading avatar is a 3-step dance:
-//       1. Upload the file bytes to Storage bucket `avatars`
-//       2. Get the public URL
-//       3. Save that URL into users.avatar_url
-//    Each step can fail independently, so each has its own try/catch path.
-//  • FilterChip > free-text genre because it prevents typos like
-//    "jazz ", "Jazz", "JAZZ" all counting as different genres.
-// ============================================================================
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -43,7 +29,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String avatarUrl = '';
   File? _newAvatar;
 
-  // Same curated list as create_gig_page for consistency.
   static const _allGenres = <String>[
     'Jazz', 'Rock', 'Pop', 'EDM', 'Hip-Hop',
     'Classical', 'Acoustic', 'R&B', 'Folk', 'Blues',

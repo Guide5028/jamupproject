@@ -1,18 +1,3 @@
-// ============================================================================
-// portfolio_grid.dart   —   Musician's photo + video gallery
-// ============================================================================
-// Teacher notes for Guide:
-//  • This widget is shared by BOTH profile_page.dart (your own) AND
-//    musician_detail_page.dart (a venue viewing a musician). That's why
-//    it lives in core/widgets/ — the rule I taught earlier: if 2+ features
-//    need a widget, it belongs in core/.
-//  • `Image.network` has THREE builders: loading / error / main. Without
-//    a `loadingBuilder` the tile is blank until the image arrives, which
-//    looks broken on slow networks.
-//  • Videos don't have native Flutter thumbnail support without an extra
-//    package (video_thumbnail). For your MVP we show a branded placeholder
-//    with a play icon, which is what Instagram/TikTok do on low-bandwidth.
-// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:jamup_app/core/constants/app_colors.dart';
@@ -78,8 +63,6 @@ class _PortfolioGridState extends State<PortfolioGrid> {
 
         return GridView.builder(
           shrinkWrap: true,
-          // MUST be NeverScrollable because this grid lives inside a
-          // parent ListView. Two scrollables stacked = fight over gestures.
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
@@ -136,8 +119,6 @@ class _PortfolioTile extends StatelessWidget {
             Image.network(
               url,
               fit: BoxFit.cover,
-              // loadingBuilder fires every progress tick. When the download
-              // is done, `progress == null` and the real image shows.
               loadingBuilder: (ctx, child, progress) {
                 if (progress == null) return child;
                 return _ShimmerPlaceholder(
@@ -186,8 +167,6 @@ class _PortfolioTile extends StatelessWidget {
   }
 }
 
-/// While the image is downloading, show a subtle shimmer block with
-/// a thin progress bar at the bottom. Much nicer than a blank tile.
 class _ShimmerPlaceholder extends StatelessWidget {
   final double? progress;
   const _ShimmerPlaceholder({this.progress});
@@ -212,7 +191,6 @@ class _ShimmerPlaceholder extends StatelessWidget {
   }
 }
 
-/// Dark gradient tile with a centered play icon. No external package needed.
 class _VideoPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

@@ -18,6 +18,11 @@ class Musician {
   final List<Gig> upcomingGigs;
   final List<String> mediaImages;
 
+  // 🔹 Distance from user — only set when fetched via get_nearby_musicians RPC.
+  //    Null means "all musicians" mode; non-null means nearby mode.
+  //    Same pattern as Gig.distance so the rest of the codebase is consistent.
+  final double? distance;
+
   Musician({
     required this.id,
     required this.name,
@@ -32,6 +37,7 @@ class Musician {
     this.performanceTypes = const [],
     this.upcomingGigs = const [],
     this.mediaImages = const [],
+    this.distance,
   });
 
   // ✅ Primary genre (for cards)
@@ -70,6 +76,12 @@ class Musician {
 
       // ⛔ fetched separately from gigs table
       upcomingGigs: const [],
+
+      // The get_nearby_musicians RPC returns distance_km.
+      // We prefer that field name; plain 'distance' is a fallback.
+      // Identical logic to Gig.fromJson — keep both in sync.
+      distance: (json['distance_km'] as num?)?.toDouble()
+          ?? (json['distance'] as num?)?.toDouble(),
     );
   }
 }

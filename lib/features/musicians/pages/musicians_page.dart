@@ -10,6 +10,7 @@ import '../widgets/musician_card.dart';
 import '../data/musician_repository.dart';
 
 import '../../../core/filters/filter_state.dart';
+import '../../../core/services/nearby_service.dart';    // 🆕 SRS-52
 import '../../../core/widgets/filter_bottom_sheet.dart';
 import '../../../core/widgets/filter_bar.dart';
 
@@ -22,6 +23,7 @@ class MusiciansPage extends StatefulWidget {
 
 class _MusiciansPageState extends State<MusiciansPage> {
   final _repo = MusicianRepository();
+  final _nearby = NearbyService();           // 🆕 SRS-52
   final _searchCtrl = TextEditingController();
   final filters = FilterState();
   String searchQuery = "";
@@ -29,6 +31,11 @@ class _MusiciansPageState extends State<MusiciansPage> {
   bool loading = true;
   String? error;
   List<Musician> _all = [];
+
+  bool _nearbyMode = false;
+  bool _nearbyLoading = false;
+  String? _nearbyError;
+  List<Musician> _nearbyMusicians = [];
 
   @override
   void initState() {
@@ -42,6 +49,7 @@ class _MusiciansPageState extends State<MusiciansPage> {
     super.dispose();
   }
 
+  // ── Load ALL musicians ───────────────────────────────────────────────────
   Future<void> _load() async {
     setState(() {
       loading = true;
@@ -64,9 +72,41 @@ class _MusiciansPageState extends State<MusiciansPage> {
     }
   }
 
+  // ── Load Nearby Musicians ────────────────────────────────────────────────
+  Future<void> _loadNearby() async {
+    if (_nearbyMusicians.isNotEmpty) return;
+
+    setState(() {
+      _nearbyLoading = true;
+      _nearbyError = null;
+    });
+
+    try {
+      final rows = await _nearby.getNearbyMusicians();
+      final list = rows.map((r) => Musician.fromJson(r)).toList();
+
+      setState(() => _nearbyMusicians = list);
+    } catch (e) {
+      setState(() => _nearbyError = e.toString());
+    } finally {
+      setState(() => _nearbyLoading = false);
+    }
+  }
+
+  // ── Switch between All and Nearby ───────────────────────────────────────
+  void _switchMode(bool nearby) {
+    setState(() => _nearbyMode = nearby);
+    if (nearby) _loadNearby();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filtered = _all.where((m) {
+    // The active list depends on which tab the user has selected.
+    // Both lists go through the same search + genre + type filter
+    // so the filter chips work in Nearby mode too.
+    final source = _nearbyMode ? _nearbyMusicians : _all;
+
+    final filtered = source.where((m) {
       final matchesGenre = filters.genres.isEmpty ||
           filters.genres.any(
             (g) =>
@@ -133,9 +173,35 @@ class _MusiciansPageState extends State<MusiciansPage> {
       ),
       body: Column(
         children: [
-          // 🔍 Search bar (Image 1 style)
+          // ── All / Nearby Toggle ───────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ModeButton(
+                    label: "All Musicians",
+                    icon: Icons.people_outline,
+                    selected: !_nearbyMode,
+                    onTap: () => _switchMode(false),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ModeButton(
+                    label: "Nearby",
+                    icon: Icons.near_me_outlined,
+                    selected: _nearbyMode,
+                    onTap: () => _switchMode(true),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 🔍 Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) {
@@ -166,7 +232,7 @@ class _MusiciansPageState extends State<MusiciansPage> {
             ),
           ),
 
-          // 🎛 Filter bar (Image 1 style)
+          // 🎛 Filter bar
           FilterBar(
             onGenreTap: () {
               showFilterBottomSheet(
@@ -211,12 +277,16 @@ class _MusiciansPageState extends State<MusiciansPage> {
           ),
 
           _activeFilters(),
+
+          // ── Result count row ─────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Row(
               children: [
                 Text(
-                  "${filtered.length} results",
+                  _nearbyMode && _nearbyLoading
+                      ? "Searching nearby…"
+                      : "${filtered.length} results",
                   style: AppFonts.textTheme.bodyMedium,
                 ),
                 const Spacer(),
@@ -241,30 +311,94 @@ class _MusiciansPageState extends State<MusiciansPage> {
             ),
           ),
 
-          // Musicians grid
+          // ── Main content area ────────────────────────────────────────────
           Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text("No musicians found"))
-                : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.68,
-                    ),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, i) {
-                      return MusicianCard(musician: filtered[i]);
-                    },
-                  ),
+            child: _buildBody(filtered),
           ),
         ],
       ),
     );
   }
 
+  // ── Body switches between loading / error / grid ─────────────────────────
+  Widget _buildBody(List<Musician> filtered) {
+    // Nearby tab: show spinner while the RPC is in-flight
+    if (_nearbyMode && _nearbyLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Nearby tab: show friendly error if GPS or RPC failed
+    if (_nearbyMode && _nearbyError != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.location_off,
+                size: 48, color: AppColors.accentBrown),
+            const SizedBox(height: 12),
+            const Text("Could not find nearby musicians"),
+            const SizedBox(height: 4),
+            Text(
+              "Make sure location permission is granted.",
+              style: AppFonts.textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.accentBrown),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                // Force a fresh fetch by clearing the cache first
+                setState(() => _nearbyMusicians = []);
+                _loadNearby();
+              },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGold),
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Empty state — shown for both All and Nearby
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _nearbyMode ? Icons.near_me_disabled : Icons.person_search,
+              size: 48,
+              color: AppColors.accentBrown,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _nearbyMode
+                  ? "No musicians found nearby"
+                  : "No musicians found",
+              style: AppFonts.textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Musicians Grid
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.68,
+      ),
+      itemCount: filtered.length,
+      itemBuilder: (context, i) {
+        return MusicianCard(musician: filtered[i]);
+      },
+    );
+  }
+
+  // ── Active filter chips row ──────────────────────────────────────────────
   Widget _activeFilters() {
     final chips = <Widget>[];
 
@@ -320,6 +454,62 @@ class _MusiciansPageState extends State<MusiciansPage> {
         spacing: 8,
         runSpacing: 8,
         children: chips,
+      ),
+    );
+  }
+}
+
+// ── Mode Toggle Button ────────────────────────────────────────────────────
+class _ModeButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryGold : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? Colors.white : AppColors.darkBrown,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : AppColors.darkBrown,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

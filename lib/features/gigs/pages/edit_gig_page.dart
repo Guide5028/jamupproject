@@ -1,14 +1,3 @@
-// ============================================================================
-// edit_gig_page.dart   —   Venue edits one of their own gigs
-// ============================================================================
-// Teacher notes for Guide:
-//  • Mirrors create_gig_page.dart on purpose. Consistent UI = less surprise
-//    for the user, and shared muscle memory for us when we maintain it.
-//  • The incoming `Gig` already has title / date / genres / image_url, so
-//    we pre-fill every control in initState from widget.gig.
-//  • Danger Zone stays at the bottom because destructive actions should
-//    never be the thing you accidentally tap on the primary focus area.
-// ============================================================================
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -153,7 +142,7 @@ class _EditGigPageState extends State<EditGigPage> {
             newLng = results.first.longitude;
           }
         } catch (_) {
-          // geocoding failed — keep original coordinates
+          // keep original coordinates
         }
       }
 
@@ -284,9 +273,6 @@ class _EditGigPageState extends State<EditGigPage> {
                 ),
                 const SizedBox(height: 12),
 
-                // We show a Google Places field so the venue can RE-pick a
-                // location (re-setting _latitude/_longitude). The current
-                // text value comes from the existing gig.
                 GooglePlaceAutoCompleteTextField(
                   textEditingController: _location,
                   googleAPIKey: 'AIzaSyDiiHfZ8hCCWOmzSde6K02wZktjI53wesw',

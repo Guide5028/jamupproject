@@ -1,16 +1,3 @@
-// ============================================================================
-// create_gig_page.dart   —   Venue creates a new gig
-// ============================================================================
-// Teacher notes for Guide:
-//  • Form is broken into clear SECTIONS (Basics, When, Details, Cover Image,
-//    Budget). Long forms without sections feel overwhelming.
-//  • We keep ALL state local to this page (`_title`, `_date`, etc.) and
-//    only call repo.createGig(...) at the very end. One DB write = one
-//    success snackbar = easy to reason about.
-//  • Image upload happens BEFORE the row is inserted, so the row gets
-//    the final public URL. If the upload fails we abort and never insert
-//    a half-broken gig with an empty image field.
-// ============================================================================
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -52,8 +39,6 @@ class _CreateGigPageState extends State<CreateGigPage> {
   String _roleNeeded = 'Any';
   String _paymentUnit = 'fixed'; // 'per_hour' | 'per_day' | 'fixed'
 
-  // Curated genre list — matches the filter chips on the gigs page.
-  // We keep it small so the chip row stays scannable.
   static const _allGenres = <String>[
     'Jazz', 'Rock', 'Pop', 'EDM', 'Hip-Hop',
     'Classical', 'Acoustic', 'R&B', 'Folk', 'Blues',
@@ -110,13 +95,11 @@ class _CreateGigPageState extends State<CreateGigPage> {
   Future<void> _pickCoverImage() async {
     final x = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 85, // compress — saves storage + bandwidth
+      imageQuality: 85,
     );
     if (x != null) setState(() => _coverImage = File(x.path));
   }
 
-  /// Uploads to the `gig_images` bucket under `<user_id>/<timestamp>.<ext>`
-  /// so the storage RLS policy matches (folder name = auth.uid()).
   Future<String?> _uploadCoverIfPicked() async {
     if (_coverImage == null) return null;
     final user = _supabase.auth.currentUser!;
@@ -132,8 +115,6 @@ class _CreateGigPageState extends State<CreateGigPage> {
 
   // ── submit ─────────────────────────────────────────────────────────
   Future<void> _save() async {
-    // one-pass validation — set ALL errors at once so the user sees
-    // everything that's missing on their first tap, not one at a time.
     setState(() {
       _locationError = _latitude == null || _longitude == null;
       _dateError = _date == null;
@@ -146,10 +127,8 @@ class _CreateGigPageState extends State<CreateGigPage> {
     setState(() => _saving = true);
 
     try {
-      // Upload cover first; if this throws, we never touch the DB row.
       final imageUrl = await _uploadCoverIfPicked();
 
-      // Combine date + start/end time into full timestamps if present.
       DateTime? startTs;
       DateTime? endTs;
       if (_startTime != null) {
@@ -377,7 +356,6 @@ class _CreateGigPageState extends State<CreateGigPage> {
                       prefix: const Icon(Icons.payments_outlined)),
                 ),
                 const SizedBox(height: 10),
-                // Rate unit — makes it clear musicians see ฿X/hr or ฿X/day
                 _buildPaymentUnitToggle(),
 
                 const SizedBox(height: 24),

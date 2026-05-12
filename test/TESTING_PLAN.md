@@ -219,17 +219,24 @@ Total estimated effort: **~11 hours of focused work** to go from a thin test sui
 
 ## 9. Final targets summary (UPDATED)
 
-| Type              | Current | Original target | Result  |
-| ----------------- | ------- | --------------- | ------- |
-| Unit tests        | **70**  | 25              | **+45 over target** |
-| Widget tests      | 0       | 8               | deferred (not required by professor) |
-| System tests      | **22**  | 18              | **+4 over target** |
-| **Total tests**   | **92**  | ~51             | **+41 over target** |
+| Type              | Current (files) | Current (individual calls) | Original target | Result  |
+| ----------------- | --------------- | -------------------------- | --------------- | ------- |
+| Unit tests        | 11 files        | **98** `test()` calls      | 25              | **+73 over target** |
+| Widget tests      | 0               | 0                          | 8               | deferred (not required by professor) |
+| System tests      | **27** files    | **88** `testWidgets()` calls | 18            | **+9 over target** |
+| **Total tests**   | **38** files    | **186** individual assertions | ~51          | **+135 over target** |
+
+> **Why two count columns?** Unit tests use `test()` — one call = one test case.
+> System tests use `testWidgets()` — each scenario file contains 2–6 individual
+> widget test calls. The traceability matrix uses the **individual call count**
+> (186 total); this plan previously listed file counts for system tests (27),
+> which made the totals inconsistent. Both numbers are correct; they just measure
+> different things.
 
 These numbers come from covering every **controller, model, and core utility** in `lib/` plus every **major user journey** described in the SRS document. The widget tier was deferred at the professor's request ("only unit and system test").
 
 The full traceability matrix mapping each test to URS / SRS / UC IDs lives in
-`JamUP-TestPlan.docx` at the project root.
+`docs/traceability_matrix.md` at the project root.
 
 ---
 

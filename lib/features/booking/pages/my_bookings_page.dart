@@ -1,22 +1,3 @@
-// ============================================================================
-// my_bookings_page.dart   —   musician's view of their booking requests
-// ============================================================================
-// Teacher notes for Guide:
-//
-//   • The previous version was bare. This one adds:
-//     1. Status filter chips (All / Pending / Confirmed / Declined)
-//     2. A useful empty-state with guidance instead of "No bookings found"
-//     3. Cleaner date formatting using DateTime.parse + manual format
-//        (no extra package required, predictable display)
-//     4. Status pills next to each booking — at-a-glance state visible
-//        without tapping into the booking
-//
-//   • Why filter chips? When a musician has 30 booking requests across
-//     statuses, a flat list is overwhelming. Letting them narrow to
-//     "Confirmed" instantly turns this into a "what gigs do I have"
-//     screen (a different mental model from the schedule page, which
-//     is calendar-based).
-// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -28,8 +9,6 @@ import '../../messages/pages/chat_page.dart';
 import '../controllers/booking_controller.dart';
 import '../data/booking_repository.dart';
 
-/// We use a typed enum instead of magic strings so the compiler catches
-/// typos. Each value carries its display label + Supabase status string.
 enum _StatusFilter {
   all('All', null),
   pending('Pending', 'pending'),
@@ -80,9 +59,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
               return _errorState(ctrl.error!);
             }
 
-            // Apply the in-memory status filter. We do this in the page
-            // rather than pushing a new param to the controller — the
-            // dataset is small and filtering client-side is instant.
             final all = ctrl.bookings;
             final visible = _selected.value == null
                 ? all
@@ -211,8 +187,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         trailing: const Icon(Icons.chat_bubble_outline,
             color: AppColors.accentBrown),
         onTap: () async {
-          // Capture-before-await: grab Navigator now so the post-await
-          // call doesn't need `context` and the analyzer is satisfied.
           final navigator = Navigator.of(context);
           final repo = BookingRepository();
           final bookingId = booking['id'].toString();
@@ -236,7 +210,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     );
   }
 
-  /// Tiny status pill used inside the subtitle row.
   Widget _statusPill(String status, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -255,8 +228,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     );
   }
 
-  /// Maps a status string to (icon, color). Returning a record is the
-  /// modern Dart way to return two values without making a class.
   (IconData, Color) _statusVisuals(String status) {
     switch (status) {
       case 'confirmed':
@@ -269,9 +240,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     }
   }
 
-  /// Format an ISO date string like "2026-11-25T02:43:17" into "25 Nov 2026".
-  /// We use month abbreviations rather than numeric to avoid the classic
-  /// "is that DD/MM or MM/DD?" confusion that hits any global app.
   String _prettyDate(String iso) {
     if (iso.isEmpty) return '—';
     final dt = DateTime.tryParse(iso);

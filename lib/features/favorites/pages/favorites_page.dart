@@ -1,19 +1,3 @@
-// ============================================================================
-// favorites_page.dart   —   list of gigs the user has favorited
-// ============================================================================
-// Teacher notes for Guide:
-//
-//   • This page reads the FavoritesService cache for IDs, then fetches
-//     the full Gig rows from Supabase. Why two-step? The cache only
-//     stores IDs (lightweight, used for hearts). Showing full cards
-//     needs title, image, location, etc., so we look those up here.
-//   • We use a ValueListenableBuilder on FavoritesService.ids so that
-//     toggling a heart anywhere in the app immediately removes the gig
-//     from this list — no manual refresh needed.
-//   • Empty state is opinionated: instead of a blank screen, we tell
-//     the user how to USE the feature ("tap the heart on any gig"). A
-//     well-designed empty state is half the onboarding for a feature.
-// ============================================================================
 
 import 'package:flutter/material.dart';
 
@@ -36,7 +20,6 @@ class _FavoritesPageState extends State<FavoritesPage> {
   @override
   void initState() {
     super.initState();
-    // Make sure the cache is fresh before listing.
     _future = _refresh();
   }
 
@@ -44,7 +27,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     try {
       await FavoritesService.instance.loadAll();
     } catch (_) {
-      // Network unavailable — return whatever is cached (may be empty).
+      // Return cached result on network failure
     }
     return FavoritesService.instance.listFavoriteGigs();
   }
@@ -89,10 +72,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               );
             }
 
-            // ── Live-updated list ──────────────────────────────────
-            // Even after the Future resolves, we rebuild whenever
-            // FavoritesService.ids changes — so unfavoriting from this
-            // page (or anywhere) instantly removes the card.
+            // Favorites Grid — reactive to heart toggles across the app
             return ValueListenableBuilder<Set<String>>(
               valueListenable: FavoritesService.instance.ids,
               builder: (_, favIds, __) {
@@ -122,12 +102,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
-  /// Empty state guides the user toward the action that fills this page.
-  /// A blank screen would just confuse — "is the app broken?".
+  // Empty State
   Widget _emptyState() {
     return ListView(
-      // Keep it scrollable so RefreshIndicator's pull-to-refresh works
-      // even on an empty list.
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       children: [

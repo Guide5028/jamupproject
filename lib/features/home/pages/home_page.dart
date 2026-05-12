@@ -50,18 +50,8 @@ class _HomePageState extends State<HomePage> {
     _cityFuture = LocationService.getCityName();
   }
 
-  // (Removed `_openBottomSheet` — it was a multi-select filter helper that
-  // nothing currently calls. Keeping it around as dead code was misleading;
-  // when the filter UI gets re-introduced, build it fresh from the new spec.)
-
   Future<List<List<Gig>>> _load() async {
-    // Teaching note: these print() calls are DIAGNOSTIC. When the home
-    // page looks stuck, we can read the VS Code terminal and see exactly
-    // which await is the slow one. Remove or comment out once things work.
-    print('[HomePage._load] started');
-
     final position = await LocationService.getUserLocation();
-    print('[HomePage._load] got position: $position');
 
     if (position != null) {
       _userLat = position.latitude;
@@ -69,9 +59,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     final userGenre = user?.userMetadata?['genre'];
-
-    print('[HomePage._load] fetching gigs (userLat=$_userLat, '
-        'userGenre=$userGenre)');
 
     final results = await Future.wait([
       _repo.fetchUpcoming(limit: 10),
@@ -89,9 +76,6 @@ class _HomePageState extends State<HomePage> {
         Future.value(<Gig>[]),
     ]);
 
-    print('[HomePage._load] done. upcoming=${results[0].length}, '
-        'nearby=${results[1].length}, recommended=${results[2].length}');
-
     return [
       results[0],
       results[1],
@@ -104,10 +88,6 @@ class _HomePageState extends State<HomePage> {
     await _loadFuture;
   }
 
-  // Bucket logic mirrors the controller's `_matchesPriceBucket`. We keep
-  // the parser local to this page (instead of importing it) so the home
-  // page is self-contained — but the rules MUST stay in sync. If you
-  // change one, change both.
   bool _matchesPriceBucket(double price, String bucket) {
     final clean = bucket.replaceAll('฿', '').replaceAll(',', '').trim();
     if (clean.startsWith('<')) {
@@ -239,7 +219,7 @@ class _HomePageState extends State<HomePage> {
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.zero,
                   children: [
-                    // 🔹 Location + bell
+                    // Top Bar
                     Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -265,7 +245,6 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          /// Top row
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -362,7 +341,6 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 25),
 
-                          /// Hero Text
                           const Text(
                             "Your Stage,\nOne Tap Away 🎸",
                             style: TextStyle(
@@ -383,7 +361,6 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 16),
 
-                          /// Explore Button
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
@@ -425,9 +402,6 @@ class _HomePageState extends State<HomePage> {
                         );
                       },
                       onTypeTap: () {
-                        // "Type" on a GIG = which role the venue needs.
-                        // Keep this list in sync with create_gig_page.dart's
-                        // _roleNeeded dropdown so values round-trip cleanly.
                         showFilterBottomSheet(
                           context: context,
                           title: "Type",
@@ -471,7 +445,7 @@ class _HomePageState extends State<HomePage> {
 
                     const SizedBox(height: 30),
 
-                    // 🔹 Recommended for users
+                    // Recommended Gigs
                     _sectionHeader(context, "Recommended for You",
                         onSeeAll: () {
                       Navigator.push(
@@ -494,7 +468,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                     ),
 
-                    // 🔹 Upcoming
+                    // Upcoming Gigs
                     _sectionHeader(context, "Upcoming Gigs", onSeeAll: () {
                       Navigator.push(
                         context,
@@ -518,7 +492,7 @@ class _HomePageState extends State<HomePage> {
 
                     if (_userLat != null) ...[
                     const SizedBox(height: 30),
-                    // 🔹 Nearby
+                    // Nearby Gigs
                     _sectionHeader(context, "Nearby Gigs", onSeeAll: () {
                       Navigator.push(
                         context,
@@ -553,9 +527,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ==========================
-  //  UI helpers
-  // ==========================
+  // ── UI Helpers ──
 
   Widget _sectionHeader(BuildContext context, String title,
       {required VoidCallback onSeeAll}) {
@@ -599,7 +571,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              /// IMAGE SECTION
+              // Cover Image
               Stack(
                 children: [
                   hasImage
@@ -616,7 +588,6 @@ class _HomePageState extends State<HomePage> {
                         })
                       : _placeholderImage(160),
 
-                  /// Category badge
                   Positioned(
                     top: 12,
                     left: 12,
@@ -637,7 +608,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
-                  /// Favorite button
                   Positioned(
                     top: 12,
                     right: 12,
@@ -657,7 +627,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
 
-              /// CONTENT
+              // Card Content
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -737,7 +707,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// IMAGE WITH OVERLAY
+            // Cover Image
             Stack(
               children: [
                 hasImage
@@ -755,7 +725,6 @@ class _HomePageState extends State<HomePage> {
                       )
                     : _placeholderImage(130),
 
-                /// Gradient overlay (professional touch)
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -771,7 +740,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                /// Title on image
                 Positioned(
                   left: 12,
                   bottom: 12,
@@ -788,7 +756,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                /// Small favorite icon
                 Positioned(
                   top: 10,
                   right: 10,
@@ -808,13 +775,12 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
 
-            /// CONTENT SECTION
+            // Card Content
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// Location
                   Row(
                     children: [
                       const Icon(Icons.location_on_outlined,
@@ -836,7 +802,6 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: 6),
 
-                  /// Date
                   Text(
                     _shortDate(gig.date),
                     style: const TextStyle(
@@ -847,7 +812,6 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: 8),
 
-                  /// Price highlight
                   Text(
                     payLabel(gig.payment, gig.paymentUnit),
                     style: TextStyle(
@@ -864,7 +828,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // simple gray note placeholder to avoid red broken-image bar
   Widget _placeholderImage(double height) {
     return Container(
       height: height,
