@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../../../core/utils/media_validator.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -96,8 +97,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
-    final ext = file.path.split('.').last.toLowerCase();
-    if (!['jpg', 'jpeg', 'png'].contains(ext)) {
+    final ext = extractExtension(file.path);
+    if (!isValidAvatarExtension(ext)) {
       _snack('Only JPG or PNG please.');
       return null;
     }

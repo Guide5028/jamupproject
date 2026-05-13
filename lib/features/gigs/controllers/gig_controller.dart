@@ -404,4 +404,20 @@ class GigController extends ChangeNotifier {
     loading = false;
     notifyListeners();
   }
+
+  Future<void> deleteGig(String gigId) async {
+    loading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      await repo.deleteGig(gigId);
+      myGigs.removeWhere((g) => g.id == gigId);
+    } catch (e) {
+      error = e.toString();
+    }
+
+    loading = false;
+    notifyListeners();
+  }
 }

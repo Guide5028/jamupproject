@@ -23,6 +23,11 @@ import 'package:jamup_app/models/gig.dart';
 class _FakeGigRepository extends GigRepository {
   List<Gig> seedGigs = [];
 
+  // deleteGig controls
+  bool throwOwnerError = false;
+  bool throwBookingsError = false;
+  String? lastDeletedId;
+
   @override
   Future<List<Gig>> fetchAll({String? genre}) async => seedGigs;
 
@@ -39,6 +44,15 @@ class _FakeGigRepository extends GigRepository {
 
   @override
   Future<List<Gig>> fetchMyGigs(String venueId) async => seedGigs;
+
+  @override
+  Future<void> deleteGig(String gigId) async {
+    if (throwOwnerError) throw Exception('You can only delete your own gig');
+    if (throwBookingsError) {
+      throw Exception("Can't delete a gig with bookings. Cancel them first.");
+    }
+    lastDeletedId = gigId;
+  }
 }
 
 // ── Test fixtures ───────────────────────────────────────────────────
@@ -272,6 +286,54 @@ void main() {
       ctrl.setGenreFilters({'Jazz'}); // identical: must NOT notify
 
       expect(notifyCount, 1);
+    });
+  });
+
+  group('GigController — deleteGig', () {
+    test('Successful delete removes the gig from myGigs list', () async {
+      // Arrange — seed two gigs in myGigs so we can check only one is removed.
+      final repo = _FakeGigRepository();
+      final ctrl = GigController(repo);
+      ctrl.myGigs = [
+        _gig(id: 'g1', title: 'Jazz Night'),
+        _gig(id: 'g2', title: 'Rock Show'),
+      ];
+
+      // Act
+      await ctrl.deleteGig('g1');
+
+      // Assert — g1 is gone, g2 is still there, no error.
+      expect(ctrl.myGigs.map((g) => g.id).toList(), ['g2']);
+      expect(ctrl.error, isNull);
+      expect(repo.lastDeletedId, 'g1');
+    });
+
+    test('Delete by non-owner sets error and leaves myGigs unchanged', () async {
+      // This simulates the guard: "You can only delete your own gig".
+      // The repository throws → the controller must catch it and store
+      // the error so the UI can show a SnackBar instead of crashing.
+      final repo = _FakeGigRepository()..throwOwnerError = true;
+      final ctrl = GigController(repo);
+      ctrl.myGigs = [_gig(id: 'g1')];
+
+      await ctrl.deleteGig('g1');
+
+      expect(ctrl.error, contains('only delete your own'));
+      expect(ctrl.myGigs.length, 1); // list is untouched
+    });
+
+    test('Delete with existing bookings sets error and leaves myGigs unchanged',
+        () async {
+      // This simulates the business rule: you cannot delete a gig that
+      // already has a musician booked. The booking must be cancelled first.
+      final repo = _FakeGigRepository()..throwBookingsError = true;
+      final ctrl = GigController(repo);
+      ctrl.myGigs = [_gig(id: 'g1')];
+
+      await ctrl.deleteGig('g1');
+
+      expect(ctrl.error, contains("Can't delete a gig with bookings"));
+      expect(ctrl.myGigs.length, 1);
     });
   });
 }

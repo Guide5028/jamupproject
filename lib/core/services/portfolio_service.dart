@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/media_validator.dart';
 
 
 class PortfolioService {
@@ -12,11 +13,12 @@ class PortfolioService {
     String? description,
   }) async {
 
-    final extension = file.path.split('.').last.toLowerCase();
-    final isVideo = ['mp4', 'mov', 'avi', 'mkv'].contains(extension);
-    final mediaType = isVideo ? 'video' : 'image';
-
-    final mimeType = _mimeType(extension);
+    final extension = extractExtension(file.path);
+    if (!isValidPortfolioExtension(extension)) {
+      throw Exception('Unsupported file type: .$extension');
+    }
+    final mediaType = isVideoExtension(extension) ? 'video' : 'image';
+    final mime = mimeType(extension);
 
     final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
     final storagePath = '$userId/$fileName';
@@ -26,8 +28,8 @@ class PortfolioService {
           storagePath,
           file,
           fileOptions: FileOptions(
-            contentType: mimeType,
-            upsert: false, // don't silently overwrite if path already exists
+            contentType: mime,
+            upsert: false,
           ),
         );
 
@@ -79,21 +81,4 @@ class PortfolioService {
         .eq('user_id', userId); // extra safety: only delete your own rows
   }
 
-  String _mimeType(String extension) {
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      case 'mp4':
-        return 'video/mp4';
-      case 'mov':
-        return 'video/quicktime';
-      default:
-        return 'image/jpeg'; // safe fallback
-    }
-  }
 }

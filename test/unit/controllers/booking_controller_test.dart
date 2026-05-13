@@ -6,6 +6,7 @@ class _FakeBookingRepository extends BookingRepository {
   List<Map<String, dynamic>> seedBookings = [];
   List<Map<String, dynamic>> seedSchedule = [];
   bool throwOnLoad = false;
+  bool throwDuplicateOnCreate = false;
   String? lastRespondedBookingId;
   String? lastRespondedStatus;
 
@@ -48,6 +49,9 @@ class _FakeBookingRepository extends BookingRepository {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    if (throwDuplicateOnCreate) {
+      throw Exception('You have already applied for this gig');
+    }
     return {'booking': {}, 'chatId': 'fake-chat-id'};
   }
 }
@@ -160,6 +164,28 @@ void main() {
       await ctrl.loadBookingsForMusician('me');
 
       expect(count, greaterThanOrEqualTo(2));
+    });
+  });
+
+  group('BookingController — duplicate application guard', () {
+    test('createBookingForGig sets error when musician already applied',
+        () async {
+      // Why this test matters: SRS-26 says the system must check whether
+      // the musician already applied. If that guard is ever removed from
+      // the repository, nothing else catches it — the musician silently
+      // creates a duplicate booking row. This test locks that behaviour.
+      final repo = _FakeBookingRepository()..throwDuplicateOnCreate = true;
+      final ctrl = BookingController(repo);
+
+      await ctrl.createBookingForGig(
+        gigId: 'g1',
+        venueId: 'v1',
+        startTime: DateTime(2026, 6, 1, 20),
+        endTime: DateTime(2026, 6, 1, 22),
+      );
+
+      expect(ctrl.error, contains('already applied'));
+      expect(ctrl.loading, false);
     });
   });
 }
