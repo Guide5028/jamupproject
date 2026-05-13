@@ -15,6 +15,8 @@ import '../../../core/widgets/portfolio_grid.dart';
 import '../../../models/gig.dart';
 import '../../../models/musician.dart';
 
+Future<void> _share(String text) => Share.share(text);
+
 class MusicianDetailPage extends StatefulWidget {
   final Musician musician;
 
@@ -79,7 +81,7 @@ class _MusicianDetailPageState extends State<MusicianDetailPage> {
           ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: AppColors.darkBrown),
-            onPressed: () {
+            onPressed: () async {
               final m = widget.musician;
               final parts = <String>[
                 '🎵 ${m.name}',
@@ -91,7 +93,7 @@ class _MusicianDetailPageState extends State<MusicianDetailPage> {
                 if (m.priceRange != null && m.priceRange!.isNotEmpty)
                   '💰 ${m.priceRange}',
               ];
-              Share.share(parts.join('\n'));
+              await _share(parts.join('\n'));
             },
           ),
         ],

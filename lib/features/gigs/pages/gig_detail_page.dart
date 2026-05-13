@@ -15,6 +15,9 @@ import '../../messages/pages/chat_page.dart';
 import '../../venues/pages/venue_detail_page.dart';
 import '../../booking/data/booking_repository.dart';
 
+Future<void> _share(String text, {String? subject}) =>
+    Share.share(text, subject: subject);
+
 class GigDetailPage extends StatelessWidget {
   final Gig gig;
   final BookingRepository bookingRepo = BookingRepository();
@@ -473,7 +476,10 @@ class GigDetailPage extends StatelessWidget {
               ),
               title: const Text("Share to other apps"),
               subtitle: const Text("Send via WhatsApp, Line, etc."),
-              onTap: () { Navigator.pop(context); Share.share(shareText, subject: gig.title); },
+              onTap: () async {
+                Navigator.pop(context);
+                await _share(shareText, subject: gig.title);
+              },
             ),
             const Divider(),
             ListTile(
