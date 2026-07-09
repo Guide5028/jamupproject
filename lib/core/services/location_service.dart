@@ -24,7 +24,10 @@ class LocationService {
   // without real GPS (e.g. running on an emulator with no location set).
   // Unlike kDebugMode, this does NOT auto-activate — so real devices keep
   // using real GPS even in debug builds.
-  static const bool _useMockLocation = false;
+  // TRUE while testing on an emulator whose GPS won't accept `adb emu geo fix`.
+  // ⚠️ Set back to FALSE before testing real GPS or shipping — otherwise the
+  // app always reports Chiang Mai regardless of the real device location.
+  static const bool _useMockLocation = true;
   static const double _mockLat = 18.7883; // Chiang Mai
   static const double _mockLng = 98.9853;
 
@@ -60,22 +63,43 @@ class LocationService {
         return null;
       }
 
-      // Step 3 — actually fetch the position.
-      // LocationAccuracy.medium is a good battery/precision trade-off for
-      // city-level use cases. Use .high for turn-by-turn navigation.
+      // Step 3 — fetch the position.
       //
-      // ⚠️ IMPORTANT: timeLimit is critical. Without it, if GPS never
-      // returns a fix (common on emulators, tunnels, airplane mode, bad
-      // weather), this Future hangs forever and freezes any page that
-      // awaits it. With timeLimit, we fall back to null after 8 seconds
-      // and the UI can show a "location unavailable" state instead.
-      return await Geolocator.getCurrentPosition(
+      // We use the DEFAULT (fused) provider, which works fine on this emulator
+      // — your original code returned a position instantly with it. Forcing the
+      // GPS LocationManager made it worse (it has no fix to give, so every
+      // request timed out). So: fused last-known first (instant), then a live
+      // fused fix as a fallback.
+      //
+      // 🔎 DIAGNOSTIC: log BOTH providers so we can SEE where the location is.
+      //   • fused  = Google Play provider (what the app normally reads)
+      //   • gps    = raw Android LocationManager provider
+      // Whichever one shows ~18.80, 98.95 is where `adb emu geo fix` landed.
+      final fused = await Geolocator.getLastKnownPosition();
+      Position? gps;
+      try {
+        gps = await Geolocator.getLastKnownPosition(
+          forceAndroidLocationManager: true,
+        );
+      } catch (_) {
+        gps = null;
+      }
+      print('📍 last-known FUSED: ${fused?.latitude}, ${fused?.longitude}');
+      print('📍 last-known GPS:   ${gps?.latitude}, ${gps?.longitude}');
+
+      // Prefer whichever cached fix exists (fused first — it's the reliable one
+      // here). Only ask for a live fix if neither provider has anything yet.
+      final cached = fused ?? gps;
+      if (cached != null) return cached;
+
+      final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
         timeLimit: const Duration(seconds: 8),
       );
+      print('📍 fresh fix: ${pos.latitude}, ${pos.longitude}');
+      return pos;
     } on TimeoutException catch (_) {
-      // GPS didn't respond in time. Fall back to the last-known position
-      // if the OS has one cached. This is instant — no GPS lookup.
+      // GPS didn't respond in time. Last resort: any cached fix at all.
       print('LocationService: getCurrentPosition timed out, trying last-known');
       try {
         return await Geolocator.getLastKnownPosition();

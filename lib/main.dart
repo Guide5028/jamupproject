@@ -30,8 +30,14 @@ Future<void> main() async {
     ),
   );
 
-  // Initialize OneSignal
-  await NotificationService.initialize();
+  // Initialize OneSignal. Wrapped in try/catch so that if push setup ever
+  // fails, the app STILL reaches runApp() and shows a screen, instead of
+  // dying on the native splash. Optional services should degrade, not crash.
+  try {
+    await NotificationService.initialize();
+  } catch (e, st) {
+    debugPrint('Notification init failed (continuing anyway): $e\n$st');
+  }
 
   runApp(const JamUpApp());
 }

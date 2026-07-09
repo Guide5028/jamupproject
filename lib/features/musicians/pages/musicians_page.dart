@@ -11,8 +11,12 @@ import '../data/musician_repository.dart';
 
 import '../../../core/filters/filter_state.dart';
 import '../../../core/services/nearby_service.dart';    // 🆕 SRS-52
+import '../../../core/services/musician_favorites_service.dart';
 import '../../../core/widgets/filter_bottom_sheet.dart';
 import '../../../core/widgets/filter_bar.dart';
+import '../../../core/widgets/app_skeleton.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/fade_in.dart';
 
 class MusiciansPage extends StatefulWidget {
   const MusiciansPage({super.key});
@@ -41,6 +45,11 @@ class _MusiciansPageState extends State<MusiciansPage> {
   void initState() {
     super.initState();
     _load();
+    // Refresh which musicians are favorited so the hearts on each card show
+    // the correct filled/outline state. Fire-and-forget — the cards listen to
+    // the service and rebuild themselves once it completes.
+    // ignore: unawaited_futures
+    MusicianFavoritesService.instance.loadAll().catchError((_) {});
   }
 
   @override
@@ -133,7 +142,8 @@ class _MusiciansPageState extends State<MusiciansPage> {
 
     if (loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: AppColors.background,
+        body: SafeArea(child: SkeletonCardGrid(childAspectRatio: 0.68)),
       );
     }
 
@@ -265,7 +275,7 @@ class _MusiciansPageState extends State<MusiciansPage> {
               showFilterBottomSheet(
                 context: context,
                 title: "Price",
-                options: ["< \$100", "\$100-\$300", "\$300+"],
+                options: const ["< \$100", "\$100-\$300", "\$300+"],
                 selectedSet: filters.prices,
                 refresh: () => setState(() {}),
               );
@@ -324,7 +334,7 @@ class _MusiciansPageState extends State<MusiciansPage> {
   Widget _buildBody(List<Musician> filtered) {
     // Nearby tab: show spinner while the RPC is in-flight
     if (_nearbyMode && _nearbyLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonCardGrid(childAspectRatio: 0.68);
     }
 
     // Nearby tab: show friendly error if GPS or RPC failed
@@ -361,28 +371,16 @@ class _MusiciansPageState extends State<MusiciansPage> {
 
     // Empty state — shown for both All and Nearby
     if (filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _nearbyMode ? Icons.near_me_disabled : Icons.person_search,
-              size: 48,
-              color: AppColors.accentBrown,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _nearbyMode
-                  ? "No musicians found nearby"
-                  : "No musicians found",
-              style: AppFonts.textTheme.bodyMedium,
-            ),
-          ],
-        ),
+      return EmptyState(
+        icon: _nearbyMode ? Icons.near_me_disabled : Icons.person_search,
+        title: _nearbyMode ? 'No musicians nearby' : 'No musicians found',
+        message: _nearbyMode
+            ? 'Try widening your search radius.'
+            : 'Try a different genre or search term.',
       );
     }
 
-    // Musicians Grid
+    // Musicians Grid — each card fades + slides in, lightly staggered.
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -393,7 +391,10 @@ class _MusiciansPageState extends State<MusiciansPage> {
       ),
       itemCount: filtered.length,
       itemBuilder: (context, i) {
-        return MusicianCard(musician: filtered[i]);
+        return FadeInUp(
+          delay: Duration(milliseconds: (i % 6) * 60),
+          child: MusicianCard(musician: filtered[i]),
+        );
       },
     );
   }
@@ -436,14 +437,10 @@ class _MusiciansPageState extends State<MusiciansPage> {
     }
 
     for (final p in filters.prices) {
-      chips.add(
-        FilterChipTag(
-          label: p,
-          onRemove: () {
-            setState(() => filters.prices.remove(p));
-          },
-        ),
-      );
+      chips.add(FilterChipTag(
+        label: p,
+        onRemove: () => setState(() => filters.togglePrice(p)),
+      ));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -457,6 +454,7 @@ class _MusiciansPageState extends State<MusiciansPage> {
       ),
     );
   }
+
 }
 
 // ── Mode Toggle Button ────────────────────────────────────────────────────

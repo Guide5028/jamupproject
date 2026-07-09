@@ -10,6 +10,19 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.primaryGold,
 
+      // Smooth, consistent screen transitions everywhere (every Navigator.push
+      // gets a gentle fade + upward slide automatically — no per-call work).
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          // FadeUpwards (a built-in material transition) on both platforms for
+          // a consistent gentle fade + rise. CupertinoPageTransitionsBuilder
+          // lives in flutter/cupertino.dart, not material — using a material
+          // builder here avoids an extra import.
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
+
       colorScheme: const ColorScheme.light(
         primary: AppColors.primaryGold,
         secondary: AppColors.secondaryGold,

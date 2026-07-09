@@ -16,6 +16,7 @@ import '../../../core/widgets/portfolio_grid.dart';
 
 import '../../booking/pages/my_bookings_page.dart';
 import '../../favorites/pages/favorites_page.dart';
+import '../../favorites/pages/favorite_musicians_page.dart';
 import '../data/profile_repository.dart';
 import '../widgets/profile_avatar.dart';
 import 'edit_profile_page.dart';
@@ -187,7 +188,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // Musician-specific menu item
             if (role == 'musician')
-              _menuItem(Icons.music_note_outlined, 'My Bookings', () {
+              _menuItem(Icons.music_note_outlined, 'My Applications', () {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const MyBookingsPage()));
               }),
@@ -206,14 +207,25 @@ class _ProfilePageState extends State<ProfilePage> {
                   MaterialPageRoute(builder: (_) => const VenueBookingsPage()),
                 );
               }),
+              // Venues save musicians they like; this is where those live.
+              _menuItem(Icons.favorite_outline, 'Favorite Musicians', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const FavoriteMusiciansPage()),
+                );
+              }),
             ],
-            // non-specific menu items
-            _menuItem(Icons.favorite_border, 'Favorites', () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FavoritesPage()),
-              );
-            }),
+            // Musicians favorite GIGS; venues favorite MUSICIANS (handled in
+            // the venue block above). So the gig "Favorites" page only makes
+            // sense for musicians — gating it here avoids showing both entries.
+            if (role == 'musician')
+              _menuItem(Icons.favorite_border, 'Favorites', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavoritesPage()),
+                );
+              }),
             const Divider(),
             _menuItem(Icons.settings_outlined, 'Settings', () {
               Navigator.push(context,

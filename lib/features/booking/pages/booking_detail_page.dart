@@ -129,152 +129,217 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              gig['title'],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            // ── Booking info card ── groups the details on a white card so
+            // they read as one block instead of floating text on the page.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: AppColors.accentBrown.withOpacity(0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    (gig?['title'] ?? 'Untitled gig').toString(),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkBrown,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _infoRow(Icons.location_on_outlined,
+                      (gig?['location'] ?? '').toString()),
+                  const SizedBox(height: 10),
+                  _infoRow(
+                      Icons.schedule, '${_format(start)} - ${_format(end)}'),
+                  const SizedBox(height: 16),
+                  _statusBadge(status),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(gig['location']),
-            const SizedBox(height: 8),
-            Text('${_format(start)} - ${_format(end)}'),
-            const SizedBox(height: 12),
-            _statusBadge(status),
             const Spacer(),
 
             /// 🔘 ACTION BUTTONS
-            if (status == 'pending' && role == 'venue')
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _actionLoading
-                          ? null
-                          : () => _handleAction(() => _repo.respondToBooking(
-                                bookingId: booking!['id'],
-                                status: 'confirmed',
-                              )),
-                      child: _actionLoading
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Confirm'),
-                    ),
+            // A stretch column so EVERY button spans the full width with the
+            // same height (48) and rounded shape — before, some buttons sized
+            // to their text and looked uneven. Colour signals intent:
+            // gold = primary, red outline = destructive.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (status == 'pending' && role == 'venue') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _actionLoading
+                              ? null
+                              : () =>
+                                  _handleAction(() => _repo.respondToBooking(
+                                        bookingId: booking!['id'],
+                                        status: 'confirmed',
+                                      )),
+                          child: _actionLoading
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Confirm'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                            side: const BorderSide(color: AppColors.error),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _actionLoading
+                              ? null
+                              : () =>
+                                  _handleAction(() => _repo.respondToBooking(
+                                        bookingId: booking!['id'],
+                                        status: 'declined',
+                                      )),
+                          child: const Text('Decline'),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _actionLoading
-                          ? null
-                          : () => _handleAction(() => _repo.respondToBooking(
-                                bookingId: booking!['id'],
-                                status: 'declined',
-                              )),
-                      child: _actionLoading
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Decline'),
+                  const SizedBox(height: 12),
+                ],
+
+                // Open Chat — available in every state.
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGold,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: const Text('Open Chat'),
+                  onPressed: () async {
+                    // Capture Navigator BEFORE the async gap so we never need
+                    // `context` after the await.
+                    final navigator = Navigator.of(context);
+                    final chatId =
+                        await _repo.getChatIdForBooking(booking!['id']);
+                    if (chatId == null) return;
+                    if (!mounted) return;
+                    navigator.push(
+                      MaterialPageRoute(
+                        builder: (_) => ChatPage(
+                          chatId: chatId,
+                          name: '',
+                          avatar: '',
+                          otherUserId: '',
+                          isVenue: role == 'venue',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                if (status == 'confirmed') ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
+                    onPressed: _actionLoading
+                        ? null
+                        : () => _handleAction(
+                              () => _repo.cancelBooking(booking!['id']),
+                            ),
+                    child: _actionLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Cancel Booking'),
                   ),
                 ],
-              ),
 
-            ElevatedButton(
-              onPressed: () async {
-                // Capture Navigator BEFORE the async gap so we never need
-                // `context` after the await. This is the canonical pattern
-                // the analyzer accepts — it can prove safety without
-                // tracing whether `mounted` and `context` are related.
-                final navigator = Navigator.of(context);
-                final chatId = await _repo.getChatIdForBooking(booking!['id']);
+                if (_canReview && !_alreadyReviewed) ...[
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.star_outline, color: Colors.white),
+                    label: const Text('Leave a Review',
+                        style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGold,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final reviewedUserId = role == 'venue'
+                          ? booking!['musician_id'] as String
+                          : booking!['venue_id'] as String;
+                      final reviewedName = role == 'venue'
+                          ? (booking!['musicians']?['name'] as String? ??
+                              'Musician')
+                          : (booking!['venues']?['name'] as String? ?? 'Venue');
 
-                if (chatId == null) return;
-                if (!mounted) return;
+                      final submitted = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReviewPage(
+                            bookingId: booking!['id'] as String,
+                            reviewedUserId: reviewedUserId,
+                            reviewedUserName: reviewedName,
+                          ),
+                        ),
+                      );
+                      if (submitted == true && mounted) {
+                        setState(() => _alreadyReviewed = true);
+                      }
+                    },
+                  ),
+                ],
 
-                navigator.push(
-                  MaterialPageRoute(
-                    builder: (_) => ChatPage(
-                      chatId: chatId,
-                      name: '',
-                      avatar: '',
-                      otherUserId: '',
-                      isVenue: role == 'venue',
+                if (_canReview && _alreadyReviewed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_circle,
+                            color: Colors.green, size: 18),
+                        const SizedBox(width: 6),
+                        Text('You already reviewed this booking',
+                            style: TextStyle(
+                                color: Colors.green.shade700, fontSize: 13)),
+                      ],
                     ),
                   ),
-                );
-              },
-              child: const Text('Open Chat'),
+              ],
             ),
-
-            if (status == 'confirmed')
-              ElevatedButton(
-                onPressed: _actionLoading
-                    ? null
-                    : () => _handleAction(
-                          () => _repo.cancelBooking(booking!['id']),
-                        ),
-                child: _actionLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Cancel Booking'),
-              ),
-            if (_canReview && !_alreadyReviewed)
-              ElevatedButton.icon(
-                icon: const Icon(Icons.star_outline, color: Colors.white),
-                label: const Text(
-                  'Leave a Review',
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGold,
-                  minimumSize: const Size.fromHeight(44),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () async {
-                  final reviewedUserId = role == 'venue'
-                      ? booking!['musician_id'] as String
-                      : booking!['venue_id'] as String;
-                  final reviewedName = role == 'venue'
-                      ? (booking!['musicians']?['name'] as String? ?? 'Musician')
-                      : (booking!['venues']?['name'] as String? ?? 'Venue');
-
-                  final submitted = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ReviewPage(
-                        bookingId: booking!['id'] as String,
-                        reviewedUserId: reviewedUserId,
-                        reviewedUserName: reviewedName,
-                      ),
-                    ),
-                  );
-                  if (submitted == true && mounted) {
-                    setState(() => _alreadyReviewed = true);
-                  }
-                },
-              ),
-            if (_canReview && _alreadyReviewed)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle,
-                        color: Colors.green, size: 18),
-                    const SizedBox(width: 6),
-                    Text('You already reviewed this booking',
-                        style: TextStyle(
-                            color: Colors.green.shade700, fontSize: 13)),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
@@ -301,6 +366,23 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         setState(() => _actionLoading = false);
       }
     }
+  }
+
+  // A small icon + text row used inside the booking info card.
+  Widget _infoRow(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.accentBrown),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14, color: AppColors.accentBrown),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _statusBadge(String status) {

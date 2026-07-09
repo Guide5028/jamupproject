@@ -4,6 +4,7 @@ import '../../auth/pages/login_page.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/nearby_service.dart';
 import '../../../core/services/favorites_service.dart';
+import '../../../core/services/musician_favorites_service.dart';
 import '../../../main.dart' show MainNavigation;
 
 /// AuthGate
@@ -45,6 +46,10 @@ class _AuthGateState extends State<AuthGate> {
       // first frame the user sees after a "remember me" launch.
       // ignore: unawaited_futures
       FavoritesService.instance.loadAll();
+      // Same for favorited musicians, so hearts render filled on first frame
+      // after a "remember me" launch.
+      // ignore: unawaited_futures
+      MusicianFavoritesService.instance.loadAll();
     }
   }
 

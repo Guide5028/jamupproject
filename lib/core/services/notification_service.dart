@@ -35,6 +35,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class NotificationService {
   static final supabase = Supabase.instance.client;
 
+  /// True only after OneSignal was actually initialized with a valid App ID.
+  /// The login/logout phases check this so they stay completely dormant (no
+  /// native calls, no log noise) while push isn't configured.
+  static bool _enabled = false;
+
   // ──────────────────────────────────────────────────────────────
   // PHASE 1 — SDK bootstrap (runs once in main.dart)
   // ──────────────────────────────────────────────────────────────
@@ -45,7 +50,23 @@ class NotificationService {
 
     // Boot the SDK with your OneSignal App ID.
     // Reference: https://documentation.onesignal.com/docs/flutter-sdk-setup
-    OneSignal.initialize(dotenv.env['ONESIGNAL_APP_ID']!);
+    //
+    // We DON'T use `!` here. If ONESIGNAL_APP_ID is missing, empty, or not a
+    // real OneSignal App ID, we skip push setup so the app keeps launching AND
+    // the SDK doesn't spam "Failed to get Android parameters" retries against a
+    // bad id. OneSignal App IDs are UUIDs (8-4-4-4-12 hex), so we check that
+    // shape. Drop a real UUID into .env and push turns back on automatically.
+    final oneSignalId = dotenv.env['ONESIGNAL_APP_ID'];
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    if (oneSignalId == null || !uuidPattern.hasMatch(oneSignalId)) {
+      debugPrint('⚠️ ONESIGNAL_APP_ID missing/invalid — skipping push setup. '
+          'Expected a 36-char UUID like 1a2b3c4d-5e6f-7890-abcd-ef1234567890.');
+      return;
+    }
+    _enabled = true;
+    OneSignal.initialize(oneSignalId);
 
     // Ask the OS for permission to display notifications.
     // On Android 13+ and all iOS versions this is REQUIRED, otherwise
@@ -137,6 +158,9 @@ class NotificationService {
   /// Call this from AuthService.signIn() and from your sign-up flow,
   /// right after Supabase confirms the user is authenticated.
   static Future<void> onUserLoggedIn(String userId) async {
+    // Push not configured (no valid App ID) → do nothing, stay silent.
+    if (!_enabled) return;
+
     // Tell OneSignal "this device is now associated with userId".
     // This is OneSignal's recommended way to identify a user so the
     // same person can receive notifications across multiple devices.
@@ -158,6 +182,9 @@ class NotificationService {
   /// Call this BEFORE supabase.auth.signOut(), because once signOut()
   /// runs we lose currentUser.id and cannot target the right row.
   static Future<void> onUserLoggedOut() async {
+    // Push not configured → nothing was ever registered, so nothing to clean.
+    if (!_enabled) return;
+
     final user = supabase.auth.currentUser;
     final playerId = OneSignal.User.pushSubscription.id;
 

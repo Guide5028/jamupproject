@@ -64,9 +64,7 @@ class GigController extends ChangeNotifier {
   /// separate feature ("Nearby"), already handled via the RPC.
   Set<String> selectedLocations = {};
 
-  /// Price-bucket filter — strings like "<3000", "3000-10000", "10000+".
-  /// Stored as the same labels the bottom sheet shows so we don't have
-  /// to translate twice. Parsed on-the-fly inside `filtered`.
+  /// Price-bucket filter — strings like "<฿3000", "฿3000-฿10000", "฿10000+".
   Set<String> selectedPrices = {};
 
   /// 🔎 Search
@@ -217,9 +215,7 @@ class GigController extends ChangeNotifier {
       });
     }
 
-    // 4) Price filter — bucket logic. We use `payment` (what the venue
-    //    pays the musician) since that's the meaningful number for both
-    //    sides of the marketplace. Null payment is treated as "skip".
+    // 4) Price filter — bucket logic.
     if (selectedPrices.isNotEmpty) {
       list = list.where((g) {
         final p = g.payment;
@@ -314,9 +310,7 @@ class GigController extends ChangeNotifier {
   }
 
   /// Parses a UI bucket label like "<฿3000" or "฿3000-฿10000" or "฿10000+"
-  /// and tests whether `price` falls inside it. Done as a pure function
-  /// so the rules are visible in one place — change the labels in the
-  /// bottom sheet, and the parser keeps working.
+  /// and tests whether `price` falls inside it.
   bool _matchesPriceBucket(double price, String bucket) {
     final clean = bucket.replaceAll('฿', '').replaceAll(',', '').trim();
     if (clean.startsWith('<')) {
@@ -324,18 +318,14 @@ class GigController extends ChangeNotifier {
       return upper != null && price < upper;
     }
     if (clean.endsWith('+')) {
-      final lower =
-          double.tryParse(clean.substring(0, clean.length - 1).trim());
+      final lower = double.tryParse(clean.substring(0, clean.length - 1).trim());
       return lower != null && price >= lower;
     }
     if (clean.contains('-')) {
       final parts = clean.split('-');
       final lower = double.tryParse(parts[0].trim());
       final upper = double.tryParse(parts[1].trim());
-      return lower != null &&
-          upper != null &&
-          price >= lower &&
-          price <= upper;
+      return lower != null && upper != null && price >= lower && price <= upper;
     }
     return false;
   }

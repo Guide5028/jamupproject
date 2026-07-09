@@ -6,6 +6,8 @@ import '../../../core/services/location_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
 import '../../../core/utils/pay_label.dart';
+import '../../../core/widgets/app_network_image.dart';
+import '../../../core/widgets/app_skeleton.dart';
 
 import '../../../models/gig.dart';
 
@@ -84,31 +86,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _loadFuture = _load());
+    // Re-fetch BOTH the gigs and the city. Previously only the gigs were
+    // refreshed, so the location pill stayed stuck on whatever it read at
+    // startup — which is why changing the emulator's location did nothing
+    // until a full hot restart. Now a pull-to-refresh updates the city too.
+    setState(() {
+      _loadFuture = _load();
+      _cityFuture = LocationService.getCityName();
+    });
     await _loadFuture;
-  }
-
-  bool _matchesPriceBucket(double price, String bucket) {
-    final clean = bucket.replaceAll('฿', '').replaceAll(',', '').trim();
-    if (clean.startsWith('<')) {
-      final upper = double.tryParse(clean.substring(1).trim());
-      return upper != null && price < upper;
-    }
-    if (clean.endsWith('+')) {
-      final lower =
-          double.tryParse(clean.substring(0, clean.length - 1).trim());
-      return lower != null && price >= lower;
-    }
-    if (clean.contains('-')) {
-      final parts = clean.split('-');
-      final lower = double.tryParse(parts[0].trim());
-      final upper = double.tryParse(parts[1].trim());
-      return lower != null &&
-          upper != null &&
-          price >= lower &&
-          price <= upper;
-    }
-    return false;
+    await _cityFuture;
   }
 
   List<Gig> filterGigs(List<Gig> gigs) {
@@ -148,30 +135,36 @@ class _HomePageState extends State<HomePage> {
         future: _loadFuture,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const SizedBox(height: 100),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.75,
+            // Animated shimmer skeleton — previews the card layout while gigs
+            // load, which feels far more premium than a blank grid or spinner.
+            return Shimmer(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 90),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.75,
+                    ),
+                    itemCount: 6,
+                    itemBuilder: (_, __) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8E2D6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      );
+                    },
                   ),
-                  itemCount: 6,
-                  itemBuilder: (_, __) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    );
-                  },
-                )
-              ],
+                ],
+              ),
             );
           }
 
@@ -341,35 +334,54 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 25),
 
+                          // Big, tight headline so it reads as a real hero —
+                          // 30px / w800 / negative letter-spacing gives it
+                          // weight and a modern feel. height:1.1 pulls the two
+                          // lines close together instead of floating apart.
                           const Text(
-                            "Your Stage,\nOne Tap Away 🎸",
+                            "Your stage,\none tap away.",
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 30,
+                              height: 1.1,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
                             ),
                           ),
 
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
 
                           const Text(
                             "Discover gigs that match your sound.",
                             style: TextStyle(
                               color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.3,
                             ),
                           ),
 
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 18),
 
-                          ElevatedButton(
+                          // A CTA that says what it does, with an icon and real
+                          // padding so it reads as a primary action rather than
+                          // a vague link. "Browse gigs" > "Explore".
+                          ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: const Color(0xFF1F5F5B),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 22, vertical: 12),
+                              elevation: 2,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
                               ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
                             ),
-                            child: const Text("Explore"),
+                            icon: const Icon(Icons.search, size: 18),
+                            label: const Text("Browse gigs"),
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -575,17 +587,16 @@ class _HomePageState extends State<HomePage> {
               Stack(
                 children: [
                   hasImage
-                      ? Image.network(gig.imageUrl,
+                      ? AppNetworkImage(
+                          url: gig.imageUrl,
                           height: 160,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }, errorBuilder: (_, __, ___) {
-                          return _placeholderImage(160);
-                        })
+                          displayWidth: 400,
+                          placeholder: const Center(
+                              child: CircularProgressIndicator()),
+                          errorWidget: _placeholderImage(160),
+                        )
                       : _placeholderImage(160),
 
                   Positioned(
@@ -711,17 +722,15 @@ class _HomePageState extends State<HomePage> {
             Stack(
               children: [
                 hasImage
-                    ? Image.network(
-                        gig.imageUrl,
+                    ? AppNetworkImage(
+                        url: gig.imageUrl,
                         height: 130,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        },
-                        errorBuilder: (_, __, ___) => _placeholderImage(130),
+                        displayWidth: 400,
+                        placeholder:
+                            const Center(child: CircularProgressIndicator()),
+                        errorWidget: _placeholderImage(130),
                       )
                     : _placeholderImage(130),
 
@@ -839,6 +848,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _activeFilters() {
+    // Build string tags for genre/type/location
     final allFilters = [
       ...filters.genres,
       ...filters.types,
@@ -882,11 +892,7 @@ class _HomePageState extends State<HomePage> {
                       filters.prices.remove(f);
                     });
                   },
-                  child: const Icon(
-                    Icons.close,
-                    size: 14,
-                    color: AppColors.darkBrown,
-                  ),
+                  child: const Icon(Icons.close, size: 14, color: AppColors.darkBrown),
                 ),
               ],
             ),
@@ -895,6 +901,8 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+
 
   Widget _searchBar({String hint = "Search gigs..."}) {
     return Container(

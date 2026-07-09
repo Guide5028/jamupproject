@@ -375,20 +375,22 @@ class GigDetailPage extends StatelessWidget {
                   child: Icon(Icons.business, color: Colors.white, size: 28),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Organizer",
-                      style: AppFonts.textTheme.bodyMedium,
-                    ),
-                    Text(
-                      gig.location, // temporary venue name
-                      style: AppFonts.textTheme.headlineMedium,
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Organizer",
+                        style: AppFonts.textTheme.bodyMedium,
+                      ),
+                      Text(
+                        gig.location,
+                        style: AppFonts.textTheme.headlineMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 const Icon(Icons.arrow_forward_ios, size: 16),
               ],
             ),
@@ -410,7 +412,7 @@ class GigDetailPage extends StatelessWidget {
                 ),
                 onPressed: () => _bookGig(context),
                 child: Text(
-                  "Book Now",
+                  "Apply Now",
                   style: AppFonts.textTheme.bodyLarge?.copyWith(
                       color: Colors.white, fontWeight: FontWeight.bold),
                 ),

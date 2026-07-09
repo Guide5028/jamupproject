@@ -265,8 +265,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         Center(
           child: Text(
             _selected == _StatusFilter.all
-                ? 'No bookings yet'
-                : 'No ${_selected.label.toLowerCase()} bookings',
+                ? 'No applications yet'
+                : 'No ${_selected.label.toLowerCase()} applications',
             style: AppFonts.textTheme.headlineMedium,
             textAlign: TextAlign.center,
           ),
@@ -275,8 +275,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         Center(
           child: Text(
             _selected == _StatusFilter.all
-                ? 'Browse gigs and tap "Book Now" — your requests will land here.'
-                : 'Try a different filter to see other bookings.',
+                ? 'Browse gigs and tap "Apply Now" — your applications will land here.'
+                : 'Try a different filter to see other applications.',
             textAlign: TextAlign.center,
             style: AppFonts.textTheme.bodyMedium
                 ?.copyWith(color: AppColors.accentBrown),
@@ -296,7 +296,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             const Icon(Icons.error_outline,
                 size: 36, color: AppColors.accentBrown),
             const SizedBox(height: 8),
-            Text('Could not load bookings',
+            Text('Could not load applications',
                 style: AppFonts.textTheme.bodyLarge),
             const SizedBox(height: 4),
             Text(message,

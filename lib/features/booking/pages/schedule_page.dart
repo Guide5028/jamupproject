@@ -213,12 +213,43 @@ class _SchedulePageState extends State<SchedulePage> {
                         ),
                       ),
                     ),
-                    // Mirror of the back button width so the title is
-                    // perfectly centered. 48 = standard IconButton width.
                     const SizedBox(width: 48),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                // Month navigation row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, color: Colors.white),
+                      onPressed: () => setState(() {
+                        _focusedDay = DateTime(
+                          _focusedDay.year,
+                          _focusedDay.month - 1,
+                        );
+                      }),
+                    ),
+                    Text(
+                      _monthLabel(_focusedDay),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, color: Colors.white),
+                      onPressed: () => setState(() {
+                        _focusedDay = DateTime(
+                          _focusedDay.year,
+                          _focusedDay.month + 1,
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 TableCalendar(
                   firstDay: DateTime.utc(2024, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
@@ -226,22 +257,81 @@ class _SchedulePageState extends State<SchedulePage> {
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   eventLoader: _getEventsForDay,
                   headerVisible: false,
-                  calendarStyle: CalendarStyle(
+                  calendarStyle: const CalendarStyle(
                     outsideDaysVisible: false,
-                    weekendTextStyle: const TextStyle(color: Colors.white70),
-                    defaultTextStyle: const TextStyle(color: Colors.white),
-                    markerDecoration: const BoxDecoration(
-                      color: AppColors.primaryGold,
+                    weekendTextStyle: TextStyle(color: Colors.white70),
+                    defaultTextStyle: TextStyle(color: Colors.white),
+                    // A day the user TAPPED gets a solid WHITE circle with dark
+                    // text — clearly visible on the gold header (a gold circle
+                    // was invisible because the header is the same gold).
+                    selectedDecoration: BoxDecoration(
+                      color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    todayDecoration: BoxDecoration(
-                      color: AppColors.primaryGold.withOpacity(0.4),
-                      shape: BoxShape.circle,
+                    selectedTextStyle: TextStyle(
+                      color: AppColors.darkBrown,
+                      fontWeight: FontWeight.bold,
                     ),
-                    selectedDecoration: const BoxDecoration(
-                      color: AppColors.primaryGold,
-                      shape: BoxShape.circle,
-                    ),
+                    // NOTE: we intentionally don't set markerDecoration or
+                    // todayDecoration here — both are drawn by the custom
+                    // calendarBuilders below so we get full control over how
+                    // "has work" and "today" look.
+                  ),
+                  // calendarBuilders lets us override how individual day cells
+                  // are painted. We use it for the two cues you asked for:
+                  //   1) a gold dot under any day that has a gig  ("has work")
+                  //   2) an outlined ring around today            ("today")
+                  calendarBuilders: CalendarBuilders(
+                    // ── "Has work" marker ──
+                    // table_calendar calls this for every day and passes the
+                    // events returned by eventLoader (our _getEventsForDay).
+                    // Returning null means "draw nothing"; we only draw a dot
+                    // when the day actually has at least one booking.
+                    markerBuilder: (context, day, events) {
+                      if (events.isEmpty) return null;
+                      // Green dot = a confirmed gig on this day. Green reads as
+                      // "booked" and stands out on the gold header (the old
+                      // gold dot was the same colour as the background, so it
+                      // was invisible). A thin white ring makes it pop more.
+                      return Positioned(
+                        bottom: 4,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppColors.success,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                        ),
+                      );
+                    },
+                    // ── "Today" ring ──
+                    // We draw today as an outlined (not filled) circle so it's
+                    // always recognisable as "the day we're on now", even when
+                    // the user has selected a different day. If today is also
+                    // the selected day, table_calendar uses selectedDecoration
+                    // instead, so there's no visual clash.
+                    todayBuilder: (context, day, focusedDay) {
+                      return Container(
+                        margin: const EdgeInsets.all(6),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        child: Text(
+                          '${day.day}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   onDaySelected: (selectedDay, focusedDay) {
                     setState(() {
@@ -249,6 +339,48 @@ class _SchedulePageState extends State<SchedulePage> {
                       _focusedDay = focusedDay;
                     });
                   },
+                ),
+
+                // ================= LEGEND =================
+                // A tiny key so the user understands what the dot and ring
+                // mean. Without this, coloured shapes are just decoration —
+                // a legend turns them into information.
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Confirmed gig',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(width: 18),
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Today',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -373,5 +505,13 @@ class _SchedulePageState extends State<SchedulePage> {
 
   String _formatFullDate(DateTime date) {
     return "${date.day}/${date.month}/${date.year}";
+  }
+
+  String _monthLabel(DateTime d) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return '${months[d.month - 1]} ${d.year}';
   }
 }

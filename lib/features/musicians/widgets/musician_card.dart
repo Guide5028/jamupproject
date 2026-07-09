@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
+import '../../../core/widgets/app_network_image.dart';
+import '../../../core/widgets/musician_favorite_button.dart';
 import '../../../models/musician.dart';
 import '../pages/musician_detail_page.dart';
 
@@ -89,6 +91,16 @@ class MusicianCard extends StatelessWidget {
                   ),
                 ),
 
+              // ❤️ Favorite heart — top-right corner.
+              // A venue taps this to save the musician. It sits in its own
+              // Positioned (above the gradient and image) so taps hit the
+              // heart, not the card's "open profile" GestureDetector.
+              Positioned(
+                top: 8,
+                right: 8,
+                child: MusicianFavoriteButton(musicianId: musician.id),
+              ),
+
               // 📄 Content
               Positioned(
                 left: 12,
@@ -162,29 +174,23 @@ class MusicianCard extends StatelessWidget {
   }
 
   // 🔹 Image with fallback
+  // Same look as before (grey box + person icon when there's no image or it
+  // fails), but now cached and downscaled so scrolling the grid stays smooth.
   Widget _buildImage(String url) {
-    if (url.isEmpty) {
-      return Container(
-        color: const Color(0xFF2A2A2A),
-        child: const Center(
-          child: Icon(Icons.person, size: 48, color: Colors.white54),
-        ),
-      );
-    }
+    const fallback = ColoredBox(
+      color: Color(0xFF2A2A2A),
+      child: Center(
+        child: Icon(Icons.person, size: 48, color: Colors.white54),
+      ),
+    );
 
-    return Image.network(
-      url,
+    return AppNetworkImage(
+      url: url,
       fit: BoxFit.cover,
-      height: double.infinity,
       width: double.infinity,
-      errorBuilder: (_, __, ___) {
-        return Container(
-          color: const Color(0xFF2A2A2A),
-          child: const Center(
-            child: Icon(Icons.person, size: 48, color: Colors.white54),
-          ),
-        );
-      },
+      height: double.infinity,
+      displayWidth: 220, // ~ width of one card in the 2-column grid
+      errorWidget: fallback,
     );
   }
 

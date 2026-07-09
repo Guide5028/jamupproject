@@ -373,22 +373,13 @@ class _GigPageState extends State<GigPage> {
                     onLocationTap: () =>
                         _showLocationPicker(context, ctrl, filters),
                     onPriceTap: () {
-                      // Bucket labels MUST stay in sync with the parser
-                      // in GigController._matchesPriceBucket. The "฿"
-                      // is stripped by the parser, so it's purely visual.
                       showFilterBottomSheet(
                         context: context,
                         title: "Price",
-                        options: const [
-                          "<฿3000",
-                          "฿3000-฿10000",
-                          "฿10000+",
-                        ],
+                        options: const ["<฿3000", "฿3000-฿10000", "฿10000+"],
                         selectedSet: filters.prices,
                         refresh: () {
-                          context
-                              .read<GigController>()
-                              .setPriceFilters(filters.prices);
+                          context.read<GigController>().setPriceFilters(filters.prices);
                         },
                       );
                     },
@@ -517,7 +508,13 @@ class _GigPageState extends State<GigPage> {
 
     // Price chips
     for (final p in filters.prices) {
-      chips.add(FilterChipTag(label: p, onRemove: () => filters.togglePrice(p)));
+      chips.add(FilterChipTag(
+        label: p,
+        onRemove: () {
+          filters.togglePrice(p);
+          ctrl.setPriceFilters(filters.prices);
+        },
+      ));
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -531,4 +528,5 @@ class _GigPageState extends State<GigPage> {
       ),
     );
   }
+
 }

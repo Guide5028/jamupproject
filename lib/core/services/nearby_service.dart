@@ -4,7 +4,8 @@ import 'location_service.dart';
 
 
 class NearbyService {
-  final _supabase = Supabase.instance.client;
+  // Lazy getter so tests that never call these methods don't need Supabase initialized.
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   // ─── Nearby Gigs ──────────────────────────────────────────
   Future<List<Map<String, dynamic>>> getNearbyGigs({

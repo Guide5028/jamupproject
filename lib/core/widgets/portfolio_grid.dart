@@ -1,8 +1,10 @@
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:jamup_app/core/constants/app_colors.dart';
 import 'package:jamup_app/core/constants/app_fonts.dart';
 import 'package:jamup_app/core/services/portfolio_service.dart';
+import 'package:jamup_app/core/widgets/video_player_page.dart';
 
 class PortfolioGrid extends StatefulWidget {
   final String userId;
@@ -114,21 +116,35 @@ class _PortfolioTile extends StatelessWidget {
         children: [
           // ── main content ──────────────────────────────────────
           if (isVideo)
-            _VideoPlaceholder()
+            GestureDetector(
+              onTap: url.isEmpty
+                  ? null
+                  : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VideoPlayerPage(url: url),
+                        ),
+                      ),
+              child: _VideoPlaceholder(),
+            )
+          else if (url.isEmpty)
+            Container(
+              color: const Color(0xFFF2F0EA),
+              child:
+                  const Icon(Icons.broken_image, color: AppColors.accentBrown),
+            )
           else
-            Image.network(
-              url,
+            // CachedNetworkImage caches + downscales so the portfolio grid
+            // scrolls smoothly. progressIndicatorBuilder keeps your existing
+            // shimmer-with-progress placeholder — no feature lost.
+            CachedNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
-              loadingBuilder: (ctx, child, progress) {
-                if (progress == null) return child;
-                return _ShimmerPlaceholder(
-                  progress: progress.expectedTotalBytes == null
-                      ? null
-                      : progress.cumulativeBytesLoaded /
-                          progress.expectedTotalBytes!,
-                );
-              },
-              errorBuilder: (_, __, ___) => Container(
+              memCacheWidth:
+                  (MediaQuery.of(context).devicePixelRatio * 180).round(),
+              progressIndicatorBuilder: (ctx, _, downloadProgress) =>
+                  _ShimmerPlaceholder(progress: downloadProgress.progress),
+              errorWidget: (_, __, ___) => Container(
                 color: const Color(0xFFF2F0EA),
                 child: const Icon(Icons.broken_image,
                     color: AppColors.accentBrown),

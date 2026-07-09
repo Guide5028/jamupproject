@@ -1,24 +1,32 @@
-
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_fonts.dart';
-import '../../../core/services/favorites_service.dart';
+import '../../../core/services/musician_favorites_service.dart';
 import '../../../core/widgets/app_skeleton.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/fade_in.dart';
-import '../../../models/gig.dart';
-import '../../gigs/widgets/gig_card.dart';
+import '../../../models/musician.dart';
+import '../../musicians/widgets/musician_card.dart';
 
-class FavoritesPage extends StatefulWidget {
-  const FavoritesPage({super.key});
+/// FavoriteMusiciansPage
+/// ---------------------
+/// Shows the musicians the current user (a venue) has hearted. It's the
+/// counterpart to FavoritesPage (which shows favorited gigs).
+///
+/// How it stays in sync: it loads the list once via FutureBuilder, then wraps
+/// the grid in a ValueListenableBuilder on the shared favorites set. So if the
+/// user un-hearts a musician here, that card disappears immediately without a
+/// reload — same reactive pattern as the gig favorites page.
+class FavoriteMusiciansPage extends StatefulWidget {
+  const FavoriteMusiciansPage({super.key});
 
   @override
-  State<FavoritesPage> createState() => _FavoritesPageState();
+  State<FavoriteMusiciansPage> createState() => _FavoriteMusiciansPageState();
 }
 
-class _FavoritesPageState extends State<FavoritesPage> {
-  late Future<List<Gig>> _future;
+class _FavoriteMusiciansPageState extends State<FavoriteMusiciansPage> {
+  late Future<List<Musician>> _future;
 
   @override
   void initState() {
@@ -26,13 +34,13 @@ class _FavoritesPageState extends State<FavoritesPage> {
     _future = _refresh();
   }
 
-  Future<List<Gig>> _refresh() async {
+  Future<List<Musician>> _refresh() async {
     try {
-      await FavoritesService.instance.loadAll();
+      await MusicianFavoritesService.instance.loadAll();
     } catch (_) {
-      // Return cached result on network failure
+      // Fall back to whatever is cached if the network call fails.
     }
-    return FavoritesService.instance.listFavoriteGigs();
+    return MusicianFavoritesService.instance.listFavoriteMusicians();
   }
 
   @override
@@ -40,7 +48,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Favorites'),
+        title: const Text('Favorite Musicians'),
         backgroundColor: AppColors.background,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.darkBrown),
@@ -50,11 +58,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
           setState(() => _future = _refresh());
           await _future;
         },
-        child: FutureBuilder<List<Gig>>(
+        child: FutureBuilder<List<Musician>>(
           future: _future,
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
-              return const SkeletonCardGrid(childAspectRatio: 0.75);
+              return const SkeletonCardGrid(childAspectRatio: 0.68);
             }
 
             if (snap.hasError) {
@@ -75,20 +83,20 @@ class _FavoritesPageState extends State<FavoritesPage> {
               );
             }
 
-            // Favorites Grid — reactive to heart toggles across the app
+            // Reactive to heart toggles anywhere in the app.
             return ValueListenableBuilder<Set<String>>(
-              valueListenable: FavoritesService.instance.ids,
+              valueListenable: MusicianFavoritesService.instance.ids,
               builder: (_, favIds, __) {
-                final all = snap.data ?? const <Gig>[];
+                final all = snap.data ?? const <Musician>[];
                 final visible =
-                    all.where((g) => favIds.contains(g.id)).toList();
+                    all.where((m) => favIds.contains(m.id)).toList();
 
                 if (visible.isEmpty) {
                   return const EmptyState(
                     icon: Icons.favorite_border,
-                    title: 'No favorites yet',
+                    title: 'No favorite musicians yet',
                     message:
-                        'Tap the heart on any gig to save it here for quick access.',
+                        'Tap the heart on any musician to save them here for quick access.',
                   );
                 }
 
@@ -97,14 +105,14 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.68,
                   ),
                   itemCount: visible.length,
                   itemBuilder: (_, i) => FadeInUp(
                     delay: Duration(milliseconds: (i % 6) * 60),
-                    child: GigCard(gig: visible[i]),
+                    child: MusicianCard(musician: visible[i]),
                   ),
                 );
               },

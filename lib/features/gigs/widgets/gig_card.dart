@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/pay_label.dart';
+import '../../../core/widgets/app_network_image.dart';
 import '../../../core/widgets/favorite_heart_button.dart';
 import '../../../models/gig.dart';
 import '../pages/gig_detail_page.dart';
@@ -48,9 +49,14 @@ class GigCard extends StatelessWidget {
                 /// Image
                 Positioned.fill(
                   child: hasImage
-                      ? Image.network(
-                          gig.imageUrl,
+                      ? AppNetworkImage(
+                          url: gig.imageUrl,
                           fit: BoxFit.cover,
+                          displayWidth: 360, // card spans most of the row
+                          errorWidget: Container(
+                            color: Colors.grey.shade300,
+                            child: const Icon(Icons.music_note),
+                          ),
                         )
                       : Container(
                           color: Colors.grey.shade300,
