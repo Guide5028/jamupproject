@@ -86,4 +86,55 @@ void main() {
       expect(payLabel(50000, 'per_day'), '฿50,000/day');
     });
   });
+
+  // ==========================================================================
+  // parseOfferAmount() — gates the in-app chat "Send Offer" button. A junk
+  // or zero/negative amount must never reach the repository as a real offer.
+  // ==========================================================================
+  group('parseOfferAmount — valid input', () {
+    test('parses a plain integer string', () {
+      expect(parseOfferAmount('1500'), 1500.0);
+    });
+
+    test('parses a decimal string', () {
+      expect(parseOfferAmount('2500.50'), 2500.50);
+    });
+
+    test('trims surrounding whitespace', () {
+      expect(parseOfferAmount('  3000  '), 3000.0);
+    });
+  });
+
+  group('parseOfferAmount — invalid input', () {
+    test('empty string returns null', () {
+      expect(parseOfferAmount(''), isNull);
+    });
+
+    test('non-numeric text returns null', () {
+      expect(parseOfferAmount('abc'), isNull);
+    });
+
+    test('zero returns null — a "free" offer is not a real offer', () {
+      expect(parseOfferAmount('0'), isNull);
+    });
+
+    test('negative amount returns null', () {
+      expect(parseOfferAmount('-500'), isNull);
+    });
+  });
+
+  group('offerUnitLabel — offer composer chip text', () {
+    test('per_hour maps to "Per Hour"', () {
+      expect(offerUnitLabel('per_hour'), 'Per Hour');
+    });
+
+    test('per_day maps to "Per Day"', () {
+      expect(offerUnitLabel('per_day'), 'Per Day');
+    });
+
+    test('fixed and unknown values map to "Fixed"', () {
+      expect(offerUnitLabel('fixed'), 'Fixed');
+      expect(offerUnitLabel('something_else'), 'Fixed');
+    });
+  });
 }

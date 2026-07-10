@@ -20,3 +20,26 @@ String _formatAmount(double amount) {
   }
   return buf.toString();
 }
+
+/// Parses a user-typed price-offer amount (in-app chat "Send Offer" field).
+/// Returns null for anything that isn't a usable positive number, so the
+/// caller can disable the send button instead of inserting a junk/zero offer.
+double? parseOfferAmount(String input) {
+  final value = double.tryParse(input.trim());
+  if (value == null || value <= 0) return null;
+  return value;
+}
+
+/// Human-readable label for a unit key, used on the offer-composer chips.
+/// Kept alongside payLabel() since both describe the same 'per_hour' /
+/// 'per_day' / 'fixed' vocabulary used by the Gig model.
+String offerUnitLabel(String unit) {
+  switch (unit) {
+    case 'per_hour':
+      return 'Per Hour';
+    case 'per_day':
+      return 'Per Day';
+    default:
+      return 'Fixed';
+  }
+}

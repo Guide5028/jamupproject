@@ -10,25 +10,27 @@
 
 | Suite | Files | Tests | Command |
 |-------|-------|-------|---------|
-| Unit Tests | 11 | 98 | `flutter test test/unit/` |
-| System Tests | 27 | 88 | `flutter test test/system/` |
-| **Total** | **38** | **186** | `flutter test test/` |
+| Unit Tests | 13 | 146 | `flutter test test/unit/` |
+| System Tests (STC) | 28 | 96 | `flutter test test/system/` |
+| **Total** | **41** | **242** | `flutter test test/` |
 
 ### Unit Test Index
 
 | ID | File | Tests | Covers |
 |----|------|-------|--------|
-| UT-01 | `test/unit/controllers/booking_controller_test.dart` | 7 | BookingController state machine |
-| UT-02 | `test/unit/controllers/gig_controller_test.dart` | 18 | GigController filtering & loading |
+| UT-01 | `test/unit/controllers/booking_controller_test.dart` | 8 | BookingController state machine |
+| UT-02 | `test/unit/controllers/gig_controller_test.dart` | 21 | GigController filtering & loading |
 | UT-03 | `test/unit/core/distance_calculation_test.dart` | 4 | Haversine distance formula |
 | UT-04 | `test/unit/core/filter_state_test.dart` | 10 | FilterState genre/type/location/price |
-| UT-05 | `test/unit/core/pay_label_test.dart` | 13 | payLabel() formatting |
+| UT-05 | `test/unit/core/pay_label_test.dart` | 23 | payLabel(), parseOfferAmount(), offerUnitLabel() |
 | UT-06 | `test/unit/models/booking_model_test.dart` | 4 | Booking model serialisation |
 | UT-07 | `test/unit/models/gig_model_test.dart` | 11 | Gig model serialisation |
 | UT-08 | `test/unit/models/musician_model_test.dart` | 10 | Musician model & derived fields |
 | UT-09 | `test/unit/models/schedule_item_test.dart` | 3 | ScheduleItem model |
 | UT-10 | `test/unit/models/venue_model_test.dart` | 11 | Venue model serialisation |
 | UT-11 | `test/unit/services/favorites_service_test.dart` | 7 | FavoritesService cache & toggle |
+| UT-12 | `test/unit/core/media_validator_test.dart` | 31 | Avatar/portfolio upload extension & MIME validation |
+| UT-13 | `test/unit/controllers/messages_controller_test.dart` | 3 | MessagesController load/error state |
 
 ### System Test Index
 
@@ -61,6 +63,7 @@
 | ST-25 | `test/system/st25_venue_decline_booking_test.dart` | 5 | Venue declines booking |
 | ST-26 | `test/system/st26_register_musician_test.dart` | 6 | Register Musician account |
 | ST-27 | `test/system/st27_venue_edit_gig_test.dart` | 5 | Venue edits existing gig |
+| ST-28 | `test/system/st28_chat_price_offer_test.dart` | 8 | Chat price offer negotiation |
 
 ---
 
@@ -87,6 +90,7 @@
 | FR-17 | The system shall provide an inbox for viewing message conversations. |
 | FR-18 | The system shall allow venue users to manage their posted gigs and see a prompt to sign in when unauthenticated. |
 | FR-19 | The system shall allow users to edit their profile information including name, bio, and save the changes. |
+| FR-20 | The system shall allow either party in a chat to send a structured price offer and let the recipient accept or decline it, with the gig's posted rate shown for context. |
 
 ---
 
@@ -113,6 +117,7 @@
 | FR-17 | Messaging Inbox | — | ST-19 | ✅ Verified |
 | FR-18 | Venue Gig Management | UT-02, UT-07 | ST-12 | ✅ Verified |
 | FR-19 | Edit Profile | — | ST-21 | ✅ Verified |
+| FR-20 | Chat Price Offer Negotiation | UT-05, UT-13 | ST-28 | ✅ Verified |
 
 ---
 
@@ -120,14 +125,14 @@
 
 | Layer | Tests Passing | Notes |
 |-------|--------------|-------|
-| Unit | 98 / 98 | Models, controllers, services, utilities |
-| System | 88 / 88 | End-to-end widget flows for all 27 STs |
-| **Total** | **186 / 186** | All requirements have at least one UT or ST |
+| Unit | 146 / 146 | Models, controllers, services, utilities |
+| System (STC) | 96 / 96 | End-to-end widget flows for all 28 STCs |
+| **Total** | **242 / 242** | All requirements have at least one UT or STC |
 
-Every Functional Requirement (FR-01 through FR-19) is covered by at least one
-passing System Test. Twelve of the nineteen requirements are additionally backed
-by Unit Tests that verify the underlying model, controller, or service layer.
+Every Functional Requirement (FR-01 through FR-20) is covered by at least one
+passing System Test Case (STC). Thirteen of the twenty requirements are additionally
+backed by Unit Tests that verify the underlying model, controller, or service layer.
 
 ---
 
-*Generated for JamUP presentation — `flutter test test/` verifies all 186 tests pass.*
+*Generated for JamUP presentation — `flutter test test/` verifies all 242 tests pass.*

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/utils/pay_label.dart';
 
 class MessagesRepository {
   SupabaseClient get supabase => Supabase.instance.client;
@@ -9,10 +10,12 @@ class MessagesRepository {
 
   final userId = user.id;
 
-  // 1️⃣ Get bookings where I am musician or venue
+  // 1️⃣ Get bookings where I am musician or venue (with the gig's posted
+  // rate embedded, so the chat can show "Posted rate: ฿X" for context
+  // while musician and venue negotiate).
   final bookingsRes = await supabase
       .from('bookings')
-      .select('id, status, musician_id, venue_id')
+      .select('id, status, musician_id, venue_id, gigs(payment, payment_unit)')
       .or('musician_id.eq.$userId,venue_id.eq.$userId');
 
   final bookings = List<Map<String, dynamic>>.from(bookingsRes);
@@ -76,6 +79,8 @@ class MessagesRepository {
 
     final unreadCount = unreadRes.length;
 
+    final gigInfo = booking['gigs'] as Map<String, dynamic>?;
+
     result.add({
       'chat_id': chatId,
       'booking_id': bookingId,
@@ -86,6 +91,8 @@ class MessagesRepository {
       'last_message_time': lastTime,
       'unread_count': unreadCount,
       'is_musician': isMeMusician,
+      'gig_payment': (gigInfo?['payment'] as num?)?.toDouble(),
+      'gig_payment_unit': gigInfo?['payment_unit'] as String?,
     });
   }
 
@@ -103,4 +110,125 @@ class MessagesRepository {
 
   return result;
 }
+
+  // ==========================================================================
+  // CHAT — everything below is used by ChatPage. Centralising the Supabase
+  // calls here (instead of ChatPage calling `_supabase.from(...)` directly)
+  // means the page can be pumped in widget tests with a fake repository,
+  // matching the pattern already used by BookingRepository/GigRepository.
+  // ==========================================================================
+
+  /// Live stream of every message in a chat, oldest first.
+  Stream<List<Map<String, dynamic>>> messageStream({required String chatId}) {
+    return supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('chat_id', chatId)
+        .order('created_at')
+        .map((rows) => List<Map<String, dynamic>>.from(rows));
+  }
+
+  /// Marks every message NOT sent by the current user as read.
+  Future<void> markAsRead({required String chatId}) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    await supabase
+        .from('messages')
+        .update({'read_at': DateTime.now().toIso8601String()})
+        .eq('chat_id', chatId)
+        .neq('sender_id', user.id)
+        .isFilter('read_at', null);
+  }
+
+  /// Sends a plain text chat message.
+  Future<void> sendMessage({
+    required String chatId,
+    required String text,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception('Not logged in');
+
+    await supabase.from('messages').insert({
+      'chat_id': chatId,
+      'sender_id': user.id,
+      'text': text,
+      'type': 'user',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Sends a structured price offer — a first-class negotiation message
+  /// (as opposed to free text) so the recipient sees an Accept/Decline
+  /// card with the amount instead of having to parse a sentence.
+  Future<void> sendPriceOffer({
+    required String chatId,
+    required double amount,
+    required String unit, // 'per_hour' | 'per_day' | 'fixed'
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception('Not logged in');
+
+    await supabase.from('messages').insert({
+      'chat_id': chatId,
+      'sender_id': user.id,
+      'text': 'Price offer: ${payLabel(amount, unit)}',
+      'type': 'offer',
+      'offer_amount': amount,
+      'offer_unit': unit,
+      'offer_status': 'pending',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Recipient accepts or declines a pending price offer.
+  Future<void> respondToPriceOffer({
+    required String messageId,
+    required String status, // 'accepted' | 'declined'
+  }) async {
+    await supabase
+        .from('messages')
+        .update({'offer_status': status}).eq('id', messageId);
+  }
+
+  /// Looks up the booking's musician/venue pair and returns whichever one
+  /// is NOT [myUserId] — used when a caller opens a chat without already
+  /// knowing the other participant's id.
+  Future<String?> resolveReceiverId({
+    required String bookingId,
+    required String? myUserId,
+  }) async {
+    try {
+      final booking = await supabase
+          .from('bookings')
+          .select('musician_id, venue_id')
+          .eq('id', bookingId)
+          .single();
+
+      return booking['musician_id'].toString() == myUserId
+          ? booking['venue_id'].toString()
+          : booking['musician_id'].toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fires the shared `send-notification` Edge Function (bell icon row +
+  /// OneSignal push). Best-effort — failures never block a message/offer
+  /// from having already been sent.
+  Future<void> sendNotification({
+    required String receiverId,
+    required String title,
+    required String body,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    await supabase.functions.invoke('send-notification', body: {
+      'receiverId': receiverId,
+      'title': title,
+      'body': body,
+      'type': type,
+      'data': data ?? {},
+    });
+  }
 }

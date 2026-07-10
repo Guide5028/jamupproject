@@ -4,8 +4,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/pay_label.dart';
 import '../widgets/chat_bubble.dart';
 import '../../booking/data/booking_repository.dart';
+import '../data/messages_repository.dart';
 
 class ChatPage extends StatefulWidget {
   final String name;
@@ -17,6 +19,15 @@ class ChatPage extends StatefulWidget {
   final String otherUserId;
   final bool isVenue;
 
+  /// The gig's posted rate, shown as context while musician and venue
+  /// negotiate in chat (e.g. "Posted rate: ฿2,500/day"). Null when the
+  /// caller doesn't have it handy or the gig has no fixed rate yet.
+  final double? gigPayment;
+  final String? gigPaymentUnit;
+
+  final BookingRepository? bookingRepository;
+  final MessagesRepository? messagesRepository;
+
   const ChatPage({
     super.key,
     required this.name,
@@ -26,6 +37,10 @@ class ChatPage extends StatefulWidget {
     this.bookingId,
     required this.otherUserId,
     this.isVenue = false,
+    this.gigPayment,
+    this.gigPaymentUnit,
+    this.bookingRepository,
+    this.messagesRepository,
   });
 
   @override
@@ -33,11 +48,18 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final _supabase = Supabase.instance.client;
+  // A getter (not a field) so this page can be pumped in widget tests
+  // before/without Supabase.initialize() — same reasoning as the
+  // `supabase` getter on BookingRepository/MessagesRepository.
+  SupabaseClient get _supabase => Supabase.instance.client;
   final _controller = TextEditingController();
+  final _offerAmountController = TextEditingController();
   final _scrollController = ScrollController();
 
-  final BookingRepository bookingRepo = BookingRepository();
+  late final BookingRepository bookingRepo =
+      widget.bookingRepository ?? BookingRepository();
+  late final MessagesRepository messagesRepo =
+      widget.messagesRepository ?? MessagesRepository();
 
   late String bookingStatus;
   List<Map<String, dynamic>> _messages = [];
@@ -45,14 +67,26 @@ class _ChatPageState extends State<ChatPage> {
 
   StreamSubscription? _messageSubscription;
 
-  String? get currentUserId => _supabase.auth.currentUser?.id;
+  /// Guarded read of the current auth user. Wrapped in try/catch so a test
+  /// environment without a live Supabase session degrades to "no user"
+  /// instead of crashing — the real app always has Supabase initialized
+  /// in main.dart, so this is a no-op there.
+  User? get _authUser {
+    try {
+      return _supabase.auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? get currentUserId => _authUser?.id;
 
   /// Returns the role of the currently logged-in user.
   /// We read it straight from Supabase auth metadata — same place it was
   /// written during sign-up (see auth_service.dart line 40: 'role': role).
   /// No extra network call needed; the metadata is already in memory.
   String get _currentUserRole =>
-      (_supabase.auth.currentUser?.userMetadata?['role'] ?? '')
+      (_authUser?.userMetadata?['role'] ?? '')
           .toString()
           .toLowerCase();
 
@@ -83,6 +117,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _messageSubscription?.cancel();
     _controller.dispose();
+    _offerAmountController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -91,35 +126,20 @@ class _ChatPageState extends State<ChatPage> {
   // MESSAGE LOGIC
   // ==============================
   Future<void> _markMessagesAsRead() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null || widget.chatId == null) return;
-
-    await _supabase
-        .from('messages')
-        .update({'read_at': DateTime.now().toIso8601String()})
-        .eq('chat_id', widget.chatId!)
-        .neq('sender_id', user.id)
-        .isFilter('read_at', null);
+    // No signed-in user (or no live chat yet) — nothing to mark.
+    if (widget.chatId == null || currentUserId == null) return;
+    await messagesRepo.markAsRead(chatId: widget.chatId!);
   }
 
   /// Looks up musician_id / venue_id from the booking and picks
   /// whichever one is NOT the current user. Called once on init when
   /// the caller didn't pass otherUserId.
   Future<void> _resolveReceiverId() async {
-    try {
-      final booking = await _supabase
-          .from('bookings')
-          .select('musician_id, venue_id')
-          .eq('id', widget.bookingId!)
-          .single();
-
-      final myId = currentUserId;
-      _receiverId = booking['musician_id'].toString() == myId
-          ? booking['venue_id'].toString()
-          : booking['musician_id'].toString();
-    } catch (_) {
-      // Non-fatal — message still sends, notification just won't fire.
-    }
+    final resolved = await messagesRepo.resolveReceiverId(
+      bookingId: widget.bookingId!,
+      myUserId: currentUserId,
+    );
+    if (resolved != null) _receiverId = resolved;
   }
 
   void _loadDemoMessages() {
@@ -139,48 +159,40 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _startMessageListener() {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-    final currentUserId = user.id;
+    _messageSubscription =
+        messagesRepo.messageStream(chatId: widget.chatId!).listen((data) async {
+      final messages = List<Map<String, dynamic>>.from(data);
 
-    _messageSubscription = _supabase
-        .from('messages')
-        .stream(primaryKey: ['id'])
-        .eq('chat_id', widget.chatId!)
-        .order('created_at')
-        .listen((data) async {
-          final messages = List<Map<String, dynamic>>.from(data);
+      // 🔧 Sort messages by time
+      messages.sort((a, b) => DateTime.parse(a['created_at'])
+          .compareTo(DateTime.parse(b['created_at'])));
 
-          // 🔧 Sort messages by time
-          messages.sort((a, b) => DateTime.parse(a['created_at'])
-              .compareTo(DateTime.parse(b['created_at'])));
+      setState(() {
+        _messages = messages;
+      });
 
-          setState(() {
-            _messages = messages;
-          });
+      // 🔥 only check unread messages — skip entirely if we don't know
+      // who "we" are (e.g. no live session), matching the guard that
+      // used to gate the whole listener before it was moved here.
+      final myId = currentUserId;
+      if (myId != null) {
+        final unread = messages
+            .where((msg) => msg['sender_id'] != myId && msg['read_at'] == null);
 
-          // 🔥 only check unread messages
-          final unread = messages.where((msg) =>
-              msg['sender_id'] != currentUserId && msg['read_at'] == null);
+        if (unread.isNotEmpty) {
+          await messagesRepo.markAsRead(chatId: widget.chatId!);
+        }
+      }
 
-          if (unread.isNotEmpty) {
-            await _supabase
-                .from('messages')
-                .update({'read_at': DateTime.now().toIso8601String()})
-                .eq('chat_id', widget.chatId!)
-                .neq('sender_id', currentUserId)
-                .isFilter('read_at', null);
-          }
-
-          _scrollToBottom();
-        });
+      _scrollToBottom();
+    });
   }
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    final user = _supabase.auth.currentUser;
+    final user = _authUser;
     if (user == null) return;
 
     _controller.clear();
@@ -198,40 +210,12 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     try {
-      await _supabase.from('messages').insert({
-        'chat_id': widget.chatId,
-        'sender_id': user.id,
-        'text': text,
-        'type': 'user',
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      // Call the unified `send-notification` Edge Function.
-      // It does TWO things for us:
-      //   1) inserts a row into `notifications` (fills the bell icon)
-      //   2) sends the OneSignal push banner
-      // We pass receiverId directly — ChatPage already knows who the
-      // other participant is via widget.otherUserId.
-      if (_receiverId.isNotEmpty) {
-        final senderName =
-            (user.userMetadata?['name'] as String?)?.isNotEmpty == true
-                ? user.userMetadata!['name'] as String
-                : user.email ?? 'Someone';
-
-        await _supabase.functions.invoke(
-          'send-notification',
-          body: {
-            'receiverId': _receiverId,
-            'title': 'New message from $senderName',
-            'body': text,
-            'type': 'message',
-            'data': {
-              'chatId': widget.chatId,
-              'bookingId': widget.bookingId,
-            },
-          },
-        );
-      }
+      await messagesRepo.sendMessage(chatId: widget.chatId!, text: text);
+      await _notifyOtherParty(
+        title: 'New message from ${_senderDisplayName(user)}',
+        body: text,
+        type: 'message',
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -239,6 +223,188 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     }
+  }
+
+  // ==============================
+  // PRICE OFFER — structured money negotiation, not just free text.
+  // ==============================
+
+  Future<void> _sendOffer(double amount, String unit) async {
+    final user = _authUser;
+
+    final offerMsg = {
+      "sender_id": user?.id ?? "me",
+      "text": 'Price offer: ${payLabel(amount, unit)}',
+      "type": "offer",
+      "offer_amount": amount,
+      "offer_unit": unit,
+      "offer_status": "pending",
+      "created_at": DateTime.now().toIso8601String(),
+    };
+
+    setState(() => _messages.add(offerMsg));
+    _scrollToBottom();
+
+    if (widget.chatId == null) return;
+
+    try {
+      await messagesRepo.sendPriceOffer(
+        chatId: widget.chatId!,
+        amount: amount,
+        unit: unit,
+      );
+      await _notifyOtherParty(
+        title: 'New price offer from ${_senderDisplayName(user)}',
+        body: payLabel(amount, unit),
+        type: 'price_offer',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send offer: $e')),
+        );
+      }
+    }
+  }
+
+  /// Recipient taps Accept or Decline on an offer bubble.
+  Future<void> _respondToOffer(dynamic messageId, String status) async {
+    setState(() {
+      final idx = _messages.indexWhere((m) => m['id'] == messageId);
+      if (idx != -1) _messages[idx]['offer_status'] = status;
+    });
+
+    if (widget.chatId == null || messageId == null) return;
+
+    try {
+      await messagesRepo.respondToPriceOffer(
+        messageId: messageId.toString(),
+        status: status,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to respond to offer: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _notifyOtherParty({
+    required String title,
+    required String body,
+    required String type,
+  }) async {
+    if (_receiverId.isEmpty) return;
+    await messagesRepo.sendNotification(
+      receiverId: _receiverId,
+      title: title,
+      body: body,
+      type: type,
+      data: {
+        'chatId': widget.chatId,
+        'bookingId': widget.bookingId,
+      },
+    );
+  }
+
+  String _senderDisplayName(User? user) {
+    final name = user?.userMetadata?['name'] as String?;
+    if (name != null && name.isNotEmpty) return name;
+    return user?.email ?? 'Someone';
+  }
+
+  void _showOfferSheet() {
+    _offerAmountController.clear();
+    String selectedUnit = 'fixed';
+    String? errorText;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Send a Price Offer',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Propose a rate — the other side can accept or decline it.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('offer_amount_field'),
+                    controller: _offerAmountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      prefixText: '฿ ',
+                      hintText: 'Amount',
+                      border: const OutlineInputBorder(),
+                      errorText: errorText,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: ['fixed', 'per_hour', 'per_day'].map((unit) {
+                      return ChoiceChip(
+                        label: Text(offerUnitLabel(unit)),
+                        selected: selectedUnit == unit,
+                        onSelected: (_) =>
+                            setSheetState(() => selectedUnit = unit),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      key: const Key('confirm_offer_button'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGold,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () {
+                        final amount =
+                            parseOfferAmount(_offerAmountController.text);
+                        if (amount == null) {
+                          setSheetState(
+                              () => errorText = 'Enter a valid amount');
+                          return;
+                        }
+                        Navigator.of(sheetContext).pop();
+                        _sendOffer(amount, selectedUnit);
+                      },
+                      child: const Text('Send Offer',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _scrollToBottom() {
@@ -297,6 +463,39 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Shows the gig's posted rate as context while the two sides negotiate
+  /// — without this, a musician has to leave the chat to re-check the gig
+  /// page to remember what was originally offered.
+  Widget _buildGigRateBanner() {
+    if (widget.gigPayment == null) return const SizedBox();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGold.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.sell_outlined,
+              size: 16, color: AppColors.darkBrown),
+          const SizedBox(width: 6),
+          Text(
+            'Posted rate: ${payLabel(widget.gigPayment, widget.gigPaymentUnit)}',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkBrown,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==============================
   // UI
   // ==============================
@@ -336,6 +535,7 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(
         children: [
           _buildStatusBanner(),
+          _buildGigRateBanner(),
           _buildBookingActions(),
           Expanded(
             child: ListView.builder(
@@ -355,6 +555,26 @@ class _ChatPageState extends State<ChatPage> {
                     msg['sender_id'] == "me";
 
                 final isRead = msg['read_at'] != null;
+
+                if (msg['type'] == 'offer') {
+                  return ChatBubble(
+                    message: msg['text'] ?? '',
+                    isMe: isMe,
+                    time: _formatTime(msg['created_at']),
+                    isRead: isRead,
+                    readAt: msg['read_at'],
+                    showSeen: isMe && isLast && isRead,
+                    offerAmount: (msg['offer_amount'] as num?)?.toDouble(),
+                    offerUnit: msg['offer_unit'] as String?,
+                    offerStatus: msg['offer_status'] as String? ?? 'pending',
+                    onAccept: !isMe
+                        ? () => _respondToOffer(msg['id'], 'accepted')
+                        : null,
+                    onDecline: !isMe
+                        ? () => _respondToOffer(msg['id'], 'declined')
+                        : null,
+                  );
+                }
 
                 return ChatBubble(
                   message: msg['text'] ?? '',
@@ -410,6 +630,12 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: Row(
         children: [
+          IconButton(
+            key: const Key('send_offer_button'),
+            tooltip: 'Send a price offer',
+            onPressed: _showOfferSheet,
+            icon: const Icon(Icons.sell_outlined, color: AppColors.primaryGold),
+          ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),

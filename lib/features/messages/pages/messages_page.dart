@@ -92,6 +92,8 @@ class _MessagesPageState extends State<MessagesPage> {
                 final int unread = c['unread_count'] ?? 0;
                 final lastMessage = c['last_message'] ?? '';
                 final lastTime = c['last_message_time'] ?? '';
+                final gigPayment = (c['gig_payment'] as num?)?.toDouble();
+                final gigPaymentUnit = c['gig_payment_unit'] as String?;
                 return Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
@@ -109,6 +111,8 @@ class _MessagesPageState extends State<MessagesPage> {
                               initialStatus: status,
                               otherUserId: '',
                               isVenue: !(c['is_musician'] as bool? ?? true),
+                              gigPayment: gigPayment,
+                              gigPaymentUnit: gigPaymentUnit,
                             ),
                           ),
                         ).then((_) {

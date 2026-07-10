@@ -1,10 +1,10 @@
-JamUP System Test Cases
-_Last updated: 2026-05-12 — descriptions now match the automated widget test files in test/system/_
+JamUP System Test Cases (STC)
+_Last updated: 2026-07-10 — descriptions now match the automated widget test files in test/system/_
 
 > **How to read this document**
 > Each entry below is an **automated widget test** (Flutter `testWidgets`).
 > "Input" describes what the test pumps and does; "Expected Result" lists what the code asserts.
-> Run all 27 cases with: `flutter test test/system/`
+> Run all 28 cases with: `flutter test test/system/`
 
 
 ---
@@ -495,5 +495,29 @@ Expected Result:
 - Clearing the title and saving shows "Title required" validation error.
 - After changing the title and saving, the fake repo records title="Updated Title ST-27" and gigId="g1".
 - No text containing "Error" or "failed" appears after a successful save.
+
+Status: PASS
+
+
+---
+
+ST-28 Chat Price Offer Negotiation
+File: st28_chat_price_offer_test.dart
+
+Input:
+1. Pump ChatPage with a fake MessagesRepository, chatId="chat-1", bookingId="b1", otherUserId="other-1".
+2. Tap the money icon in the input bar to open the "Send a Price Offer" sheet.
+3. In a second sub-test: enter amount "1500", select "Per Hour", tap "Send Offer".
+4. In a third sub-test: leave the amount empty and tap "Send Offer".
+5. In further sub-tests: seed an incoming pending offer message (sender_id="other-1") and tap Accept, then re-seed and tap Decline. Also seed an offer sent by "me" to confirm no action buttons appear.
+6. In a final sub-test: pump ChatPage with gigPayment=2500, gigPaymentUnit="per_day".
+
+Expected Result:
+- The offer button opens a sheet with an amount field and Fixed/Per Hour/Per Day chips.
+- A valid offer calls the fake repo's sendPriceOffer with chatId="chat-1", amount=1500.0, unit="per_hour", and renders a "฿1,500/hr" offer bubble showing "Pending".
+- An empty/invalid amount shows "Enter a valid amount" and never calls sendPriceOffer.
+- An incoming pending offer shows "Accept" and "Decline" buttons; tapping either calls respondToPriceOffer with the matching messageId and status ("accepted"/"declined"), and the badge updates to "Accepted"/"Declined" while the buttons disappear.
+- An offer sent by the current user never shows Accept/Decline buttons, even while pending.
+- Supplying gigPayment renders a "Posted rate: ฿2,500/day" banner above the message list.
 
 Status: PASS

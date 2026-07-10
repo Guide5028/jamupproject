@@ -13,7 +13,7 @@ Built as a solo scholarship project at the **Software Engineering Program, Chian
 **For Musicians**
 - Browse and search upcoming gigs with genre, type, and price filters
 - View full gig details and apply with one tap
-- Real-time in-app chat with venues after booking
+- Real-time in-app chat with venues after booking, including sending structured price offers to negotiate pay
 - Track booking status (pending → confirmed → declined) on a personal dashboard
 - Save favourite gigs and revisit them anytime
 - View and manage your performance schedule in a calendar
@@ -29,9 +29,10 @@ Built as a solo scholarship project at the **Software Engineering Program, Chian
 
 **Platform-wide**
 - Role-based access control (Musician vs Venue) enforced throughout the UI and database
-- Push notifications via OneSignal for booking decisions and new messages
+- Push notifications via OneSignal for booking decisions, new messages, and price offers
 - GPS-powered "Nearby Gigs" and "Nearby Musicians" powered by custom Supabase RPC functions using the Haversine formula
 - Share gigs to external apps or send them directly into an existing chat
+- Send and respond to price offers inside a chat (Accept/Decline), with the gig's posted rate shown for context — a first-class way to talk about pay instead of free text
 - Change password and manage notification preferences in Settings
 
 ---
@@ -92,7 +93,7 @@ lib/
 
 ## Testing
 
-The project has **186 automated tests** covering every functional requirement defined in the SRS.
+The project has **242 automated tests** covering every functional requirement defined in the SRS.
 
 ```
 flutter test test/
@@ -100,15 +101,15 @@ flutter test test/
 
 | Suite | Files | Tests | Command |
 |---|---|---|---|
-| Unit tests | 11 | 98 | `flutter test test/unit/` |
-| System tests | 27 | 88 | `flutter test test/system/` |
-| **Total** | **38** | **186** | `flutter test test/` |
+| Unit tests (UT) | 13 | 146 | `flutter test test/unit/` |
+| System test cases (STC) | 28 | 96 | `flutter test test/system/` |
+| **Total** | **41** | **242** | `flutter test test/` |
 
-**Unit tests** cover models (JSON serialisation, null safety, derived fields), controllers (state machine transitions, filter logic, optimistic UI rollback), services (Haversine distance, pay label formatting, favorites toggle), and the booking controller's conflict detection.
+**Unit tests** cover models (JSON serialisation, null safety, derived fields), controllers (state machine transitions, filter logic, optimistic UI rollback), services (Haversine distance, pay label formatting, favorites toggle), upload validation, and the booking controller's conflict detection.
 
-**System tests** are automated Flutter widget tests (`testWidgets`) that pump real pages with fake repositories and assert on rendered output. They prove every user-facing flow — login validation, gig card rendering, booking confirmation, decline flow, review submission, registration, and more — without needing a live Supabase connection.
+**System test cases (STC)** are automated Flutter widget tests (`testWidgets`) that pump real pages with fake repositories and assert on rendered output. They prove every user-facing flow — login validation, gig card rendering, booking confirmation, decline flow, review submission, registration, chat price-offer negotiation, and more — without needing a live Supabase connection.
 
-All 19 Functional Requirements (FR-01 through FR-19) are traced to at least one passing test in `docs/traceability_matrix.md`.
+All 20 Functional Requirements (FR-01 through FR-20) are traced to at least one passing STC in `docs/traceability_matrix.md`.
 
 ---
 
@@ -166,7 +167,7 @@ The project includes a full set of formal software engineering documents:
 |---|---|
 | `JamUP-SRS.pdf` | Software Requirements Specification (URS + SRS, 52 requirements) |
 | `JamUP-SDD_v3.0.pdf` | Software Design Document |
-| `JamUP-TestPlan_v2.0.pdf` | Test Plan (unit, system, and UAT strategy) |
+| `JamUP-TestPlan_v2.0.pdf` | Test Plan (unit and system/STC test-case strategy) |
 | `JamUP-TestRecord_v1.0.pdf` | Test Record with results |
 | `JamUP-Traceability_v3.0.pdf` | Requirements Traceability Matrix |
 | `docs/traceability_matrix.md` | Live markdown traceability matrix (FR → UT/ST) |
